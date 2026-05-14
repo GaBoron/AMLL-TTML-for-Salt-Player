@@ -1,67 +1,65 @@
 # AMLL TTML Loader for Salt Player
 
-Salt Player for Windows plugin that searches AMLL TTML DB, converts TTML word
-lyrics into Salt Player compatible timed lyrics, and falls back to local lyrics
-when no reliable AMLL match is available.
+AMLL TTML Loader is a Salt Player for Windows plugin that searches AMLL TTML DB,
+loads TTML lyrics, converts them into Salt Player compatible timed lyrics, and
+falls back to local lyrics when no reliable online match is available.
 
-This project was built with Codex.
+This project was built with assistance from Codex.
 
 ## Features
 
-- Loads `.ttml` lyrics from `amll-dev/amll-ttml-db`.
-- Converts main lyrics, duet lines, translations, romanization, and background
-  vocals into SPL-style timed lyric lines for Salt Player.
-- Uses the current track metadata in this order: search AMLL first, then load
-  local sidecar lyrics or let Salt Player continue with its own metadata/local
-  lyric loader.
-- Waits up to 10 seconds for an online AMLL search. If the online search does
-  not finish in time, the plugin immediately falls back to local/default lyrics;
-  the background search may still populate cache for the next playback.
-- Shows a short first lyric line for plugin-loaded lyrics:
-  - `来源：AMLL` for AMLL search results and AMLL cache.
-  - `来源：本地` for plugin-loaded local sidecar `.ttml`, `.lrc`, or `.spl` files.
-- Hides `[ti]`, `[ar]`, `[al]`, and `[by]` metadata tags so Salt Player does not
-  show them as translated lyrics.
-- Caches successful AMLL lyrics permanently.
-- Records AMLL search misses for seven days, then tries again after the cache
-  expires.
-- Uses title-first matching: the song title must be similar enough before
-  artist and album metadata can affect automatic matching.
-- Provides a plugin settings button named `手动匹配当前歌曲`.
-  - Edit title, artist, and album before searching.
-  - Preview the first lyric lines from each AMLL result.
-  - Save a chosen AMLL lyric as a permanent override for the current song.
-  - Save a local/default override so the current song will stop searching AMLL.
+- Searches `amll-dev/amll-ttml-db` using the current track title, artist, and
+  album metadata.
+- Converts TTML word-level lyrics into SPL-style timed lyrics for Salt Player.
+- Handles main lyrics, duet/agent lines, translations, romanization, and
+  background vocals.
+- Uses title-first automatic matching to reduce incorrect lyric matches.
+- Waits up to 10 seconds for an online AMLL search, then falls back to local or
+  default Salt Player lyrics if the search is still pending.
+- Permanently caches successful AMLL matches so the same song can load
+  immediately next time.
+- Records failed automatic matches for seven days, then retries after the miss
+  cache expires.
+- Shows a compact source line for plugin-loaded lyrics: `来源：AMLL` or
+  `来源：本地`.
+- Provides a manual matching dialog from the plugin settings page, including
+  editable title/artist/album fields, AMLL search results, lyric previews, and a
+  local/default override option.
 
-## Build
+## Installation
+
+1. Download `AMLL-TTML-Loader-1.0.0.zip` from the latest GitHub Release.
+2. Copy the zip file to:
+
+   ```text
+   %APPDATA%\Salt Player for Windows\workshop\plugins
+   ```
+
+3. Restart Salt Player for Windows.
+4. Optional: open the plugin settings and use `手动匹配当前歌曲` to manually choose
+   an AMLL result or force the current song to use local/default lyrics.
+
+## Build from Source
 
 Requirements:
 
 - JDK 21
-- Network access on the first Gradle wrapper run, unless Gradle is already
+- Network access for the first Gradle wrapper run, unless Gradle is already
   cached locally
 
 Build the plugin package:
 
 ```powershell
-$env:JAVA_HOME='C:\Program Files\Android\openjdk\jdk-21.0.8'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
 .\gradlew.bat --no-daemon plugin
 ```
 
 The plugin package is written to:
 
 ```text
-out-cache-fix\plugin\AMLL-TTML-Loader-1.0.0.zip
+out\plugin\AMLL-TTML-Loader-1.0.0.zip
 ```
 
-Install it by copying the zip into:
-
-```text
-%APPDATA%\Salt Player for Windows\workshop\plugins
-```
-
-## Cache
+## Cache and Overrides
 
 The plugin stores cache and manual overrides under:
 
@@ -74,12 +72,24 @@ Important files:
 - `raw-lyrics-index.jsonl`: cached AMLL index
 - `song-cache.tsv`: successful AMLL lyric matches
 - `manual-overrides.tsv`: manual AMLL or local/default choices
-- `miss-cache.tsv`: 24-hour AMLL miss records
+- `miss-cache.tsv`: seven-day automatic-match miss records
 - `lyrics\*.spl`: converted lyric cache
 
-## Notes
+## Limitations
 
-Salt Player's current plugin API does not expose a callback for rewriting lyrics
-after Salt Player has already loaded embedded metadata lyrics. If AMLL and
-plugin sidecar loading both miss, the plugin returns `null` and Salt Player
-continues with its default local or embedded metadata lyric behavior.
+- Salt Player's current plugin API only lets plugins provide lyrics before Salt
+  Player loads them. The plugin cannot reliably show local lyrics first and then
+  replace them with online lyrics during the same playback.
+- Embedded metadata lyrics loaded internally by Salt Player cannot be tagged with
+  a source line by this plugin.
+- Online matching depends on AMLL TTML DB coverage, current network access, and
+  the quality of the track metadata.
+
+## Credits
+
+- [amll-dev/amll-ttml-db](https://github.com/amll-dev/amll-ttml-db) for the TTML
+  lyric database.
+- [Moriafly/spw-workshop-api](https://github.com/Moriafly/spw-workshop-api) for
+  the Salt Player workshop API reference.
+- Salt Player for Windows for the plugin platform.
+- PF4J and Gradle for the plugin and build ecosystem.
