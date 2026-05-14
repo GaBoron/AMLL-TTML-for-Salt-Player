@@ -5,7 +5,7 @@ plugins {
 group = "dev.amll.saltplayer"
 version = "1.0.0"
 
-layout.buildDirectory.set(file("out-release"))
+layout.buildDirectory.set(file("out-plugin"))
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21

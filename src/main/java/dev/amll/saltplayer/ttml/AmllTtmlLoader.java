@@ -14,20 +14,29 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 final class AmllTtmlLoader {
     private static final String CACHE_VERSION = "v3";
     private static final Duration INDEX_CACHE_MAX_AGE = Duration.ofHours(1);
-    private static final Duration LYRICS_CACHE_MAX_AGE = Duration.ofHours(1);
+    private static final Duration ONLINE_SEARCH_TIMEOUT = Duration.ofSeconds(10);
     private static final String SOURCE_PREFIX = "\u6765\u6e90\uff1a";
     private static final String SOURCE_AMLL = "AMLL";
     private static final String OVERRIDE_LOCAL = "__LOCAL__";
     private static final String SOURCE_LOCAL = "\u672c\u5730";
-    private static final Duration MISS_CACHE_MAX_AGE = Duration.ofHours(24);
+    private static final Duration MISS_CACHE_MAX_AGE = Duration.ofDays(7);
+    private static final ExecutorService ONLINE_SEARCH_EXECUTOR = Executors.newFixedThreadPool(2, new DaemonThreadFactory());
     private static final String INDEX_URL =
             "https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main/metadata/raw-lyrics-index.jsonl";
     private static final String RAW_LYRICS_BASE_URL =
@@ -62,32 +71,16 @@ final class AmllTtmlLoader {
             String override = readOverride(songKey);
             if (OVERRIDE_LOCAL.equals(override)) return null;
             if (override != null && override.endsWith(".ttml")) {
+                String cached = readCachedLyrics(songKey, override);
+                if (cached != null) return new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL);
                 return loadRawLyric(mediaItem, songKey, override);
             }
-            if (hasRecentMiss(songKey)) return loadLocalLyrics(mediaItem).orElse(null);
 
             String cached = readCachedLyrics(songKey);
             if (cached != null) return new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL);
 
-            IndexEntry match = findBestMatch(mediaItem);
-            if (match == null) {
-                refreshIndex();
-                match = findBestMatch(mediaItem);
-            }
-            if (match == null) {
-                writeMiss(songKey);
-                return loadLocalLyrics(mediaItem).orElse(null);
-            }
-
-            String ttml = fetchText(RAW_LYRICS_BASE_URL + match.rawLyricFile);
-            String spl = TtmlToSplConverter.convert(ttml, mediaItem);
-            if (spl.isBlank()) {
-                writeMiss(songKey);
-                return loadLocalLyrics(mediaItem).orElse(null);
-            }
-
-            writeCachedLyrics(songKey, match.rawLyricFile, spl);
-            return new LoadResult(withSourceTag(spl, SOURCE_AMLL), SOURCE_AMLL);
+            if (hasRecentMiss(songKey)) return loadLocalLyrics(mediaItem).orElse(null);
+            return loadOnlineWithTimeout(mediaItem, songKey);
         } catch (Exception error) {
             System.out.println("AMLL TTML Loader failed: " + error.getMessage());
             try {
@@ -97,6 +90,42 @@ final class AmllTtmlLoader {
                 return null;
             }
         }
+    }
+
+    private LoadResult loadOnlineWithTimeout(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+        var future = ONLINE_SEARCH_EXECUTOR.submit((Callable<LoadResult>) () -> loadOnlineLyrics(mediaItem, songKey));
+        try {
+            LoadResult result = future.get(ONLINE_SEARCH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            return result != null ? result : loadLocalLyrics(mediaItem).orElse(null);
+        } catch (TimeoutException timeout) {
+            System.out.println("AMLL TTML Loader online search timed out after " + ONLINE_SEARCH_TIMEOUT.toSeconds() + " seconds.");
+            return loadLocalLyrics(mediaItem).orElse(null);
+        } catch (Exception error) {
+            System.out.println("AMLL TTML Loader online search failed: " + error.getMessage());
+            return loadLocalLyrics(mediaItem).orElse(null);
+        }
+    }
+
+    private LoadResult loadOnlineLyrics(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+        IndexEntry match = findBestMatch(mediaItem);
+        if (match == null) {
+            refreshIndex();
+            match = findBestMatch(mediaItem);
+        }
+        if (match == null) {
+            writeMiss(songKey);
+            return null;
+        }
+
+        String ttml = fetchText(RAW_LYRICS_BASE_URL + match.rawLyricFile);
+        String spl = TtmlToSplConverter.convert(ttml, mediaItem);
+        if (spl.isBlank()) {
+            writeMiss(songKey);
+            return null;
+        }
+
+        writeCachedLyrics(songKey, match.rawLyricFile, spl);
+        return new LoadResult(withSourceTag(spl, SOURCE_AMLL), SOURCE_AMLL);
     }
 
     LoadResult loadRawLyric(PlaybackExtensionPoint.MediaItem mediaItem, String songKey, String rawLyricFile) throws Exception {
@@ -115,11 +144,14 @@ final class AmllTtmlLoader {
                     .map(IndexEntry::fromJsonLine)
                     .filter(entry -> entry.rawLyricFile.endsWith(".ttml"))
                     .forEach(entry -> {
-                        int score = score(query, entry);
-                        if (score >= 45) scored.add(new ScoredEntry(entry, score));
+                        MatchScore matchScore = score(query, entry);
+                        if (matchScore.titleSimilarity >= 0.60 && matchScore.score >= 80) {
+                            scored.add(new ScoredEntry(entry, matchScore.score, matchScore.titleSimilarity));
+                        }
                     });
         }
-        scored.sort(Comparator.comparingInt((ScoredEntry item) -> item.score).reversed());
+        scored.sort(Comparator.comparingInt((ScoredEntry item) -> item.score).reversed()
+                .thenComparing(Comparator.comparingDouble((ScoredEntry item) -> item.titleSimilarity).reversed()));
 
         List<SearchResult> results = new ArrayList<>();
         for (ScoredEntry item : scored) {
@@ -205,17 +237,20 @@ final class AmllTtmlLoader {
                     .map(IndexEntry::fromJsonLine)
                     .filter(entry -> entry.rawLyricFile.endsWith(".ttml"))
                     .forEach(entry -> {
-                        int score = score(mediaItem, entry);
-                        if (score >= 70) scored.add(new ScoredEntry(entry, score));
+                        MatchScore matchScore = score(mediaItem, entry);
+                        if (matchScore.titleSimilarity >= 0.82 && matchScore.score >= 135) {
+                            scored.add(new ScoredEntry(entry, matchScore.score, matchScore.titleSimilarity));
+                        }
                     });
         }
 
-        scored.sort(Comparator.comparingInt((ScoredEntry item) -> item.score).reversed());
+        scored.sort(Comparator.comparingInt((ScoredEntry item) -> item.score).reversed()
+                .thenComparing(Comparator.comparingDouble((ScoredEntry item) -> item.titleSimilarity).reversed()));
         if (scored.isEmpty()) return null;
 
         ScoredEntry best = scored.get(0);
         ScoredEntry second = scored.size() > 1 ? scored.get(1) : null;
-        if (best.score >= 105 || second == null || best.score - second.score >= 10) {
+        if (second == null || best.score - second.score >= 18 || best.score >= 175 && best.score - second.score >= 8) {
             return best.entry;
         }
         return null;
@@ -285,6 +320,10 @@ final class AmllTtmlLoader {
     }
 
     private String readCachedLyrics(String songKey) throws IOException {
+        return readCachedLyrics(songKey, null);
+    }
+
+    private String readCachedLyrics(String songKey, String expectedRawLyricFile) throws IOException {
         if (!Files.isRegularFile(songCache)) return null;
 
         for (String line : Files.readAllLines(songCache, StandardCharsets.UTF_8)) {
@@ -293,10 +332,10 @@ final class AmllTtmlLoader {
             String[] fields = line.split("\t");
             if (fields.length < 5) return null;
             if (!CACHE_VERSION.equals(fields[4])) return null;
+            if (expectedRawLyricFile != null && !expectedRawLyricFile.equals(fields[1])) return null;
 
             Path lyricPath = lyricsCache.resolve(fields[2]).normalize();
             if (!lyricPath.startsWith(lyricsCache) || !Files.isRegularFile(lyricPath)) return null;
-            if (isOlderThan(lyricPath, LYRICS_CACHE_MAX_AGE)) return null;
             return Files.readString(lyricPath, StandardCharsets.UTF_8);
         }
         return null;
@@ -316,8 +355,8 @@ final class AmllTtmlLoader {
 
     private String fetchText(String url) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        connection.setConnectTimeout(10_000);
-        connection.setReadTimeout(25_000);
+        connection.setConnectTimeout(5_000);
+        connection.setReadTimeout(10_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
         connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0");
@@ -333,22 +372,24 @@ final class AmllTtmlLoader {
         }
     }
 
-    private int score(PlaybackExtensionPoint.MediaItem mediaItem, IndexEntry entry) {
-        String title = normalize(mediaItem.getTitle());
+    private MatchScore score(PlaybackExtensionPoint.MediaItem mediaItem, IndexEntry entry) {
+        String title = normalizeTitle(mediaItem.getTitle());
         String album = normalize(mediaItem.getAlbum());
-        List<String> artists = splitArtists(mediaItem.getArtist());
+        List<String> artists = splitArtists(String.join("/", nullToBlank(mediaItem.getArtist()), nullToBlank(mediaItem.getAlbumArtist())));
 
-        List<String> entryTitles = entry.metadata.getOrDefault("musicName", List.of()).stream().map(AmllTtmlLoader::normalize).toList();
+        List<String> entryTitles = entry.metadata.getOrDefault("musicName", List.of()).stream().map(AmllTtmlLoader::normalizeTitle).toList();
         List<String> entryAlbums = entry.metadata.getOrDefault("album", List.of()).stream().map(AmllTtmlLoader::normalize).toList();
         List<String> entryArtists = entry.metadata.getOrDefault("artists", List.of()).stream().flatMap(value -> splitArtists(value).stream()).toList();
 
-        int score = 0;
-        if (!title.isBlank() && entryTitles.stream().anyMatch(title::equals)) score += 85;
-        if (!title.isBlank() && score == 0 && entryTitles.stream().anyMatch(value -> value.contains(title) || title.contains(value))) score += 65;
+        double titleSimilarity = bestTitleSimilarity(title, entryTitles);
+        if (titleSimilarity < 0.72) return new MatchScore(0, titleSimilarity);
+
+        int score = titleSimilarity >= 0.995 ? 150 : (int) Math.round(150 * titleSimilarity);
+        if (!artists.isEmpty() && entryArtists.stream().anyMatch(entryArtist -> artists.stream().anyMatch(entryArtist::equals))) score += 45;
+        else if (!artists.isEmpty() && entryArtists.stream().anyMatch(entryArtist -> artists.stream().anyMatch(artist -> artist.contains(entryArtist) || entryArtist.contains(artist)))) score += 20;
         if (!album.isBlank() && entryAlbums.stream().anyMatch(album::equals)) score += 25;
-        if (!artists.isEmpty() && entryArtists.stream().anyMatch(entryArtist -> artists.stream().anyMatch(entryArtist::equals))) score += 40;
-        if (!artists.isEmpty() && entryArtists.stream().anyMatch(entryArtist -> artists.stream().anyMatch(artist -> artist.contains(entryArtist) || entryArtist.contains(artist)))) score += 15;
-        return score;
+        else if (!album.isBlank() && entryAlbums.stream().anyMatch(value -> value.contains(album) || album.contains(value))) score += 10;
+        return new MatchScore(score, titleSimilarity);
     }
 
     private boolean isOlderThan(Path path, Duration maxAge) throws IOException {
@@ -362,7 +403,7 @@ final class AmllTtmlLoader {
     }
 
     static String cacheKey(PlaybackExtensionPoint.MediaItem item) {
-        return String.join("|", normalize(item.getTitle()), normalize(item.getArtist()), normalize(item.getAlbum()));
+        return String.join("|", normalizeTitle(item.getTitle()), normalize(item.getArtist()), normalize(item.getAlbum()));
     }
 
     private static String first(List<String> values) {
@@ -381,6 +422,86 @@ final class AmllTtmlLoader {
                 .replaceAll("\\([^)]*\\)|\\uFF08[^\\uFF09]*\\uFF09|\\[[^]]*]", "")
                 .replaceAll("[^\\p{L}\\p{N}]+", "")
                 .trim();
+    }
+
+    private static String normalizeTitle(String value) {
+        if (value == null) return "";
+        String stripped = value.toLowerCase(Locale.ROOT)
+                .replaceAll("\\([^)]*\\)|\\uFF08[^\\uFF09]*\\uFF09|\\[[^]]*]", " ")
+                .replaceAll("(?i)\\b(tv\\s*size|short\\s*ver(?:sion)?|full\\s*ver(?:sion)?|instrumental|inst\\.?|off\\s*vocal|karaoke|live|remix|remaster(?:ed)?|cover|opening|ending|op|ed)\\b", " ")
+                .replace("伴奏", " ")
+                .replace("纯音乐", " ")
+                .replace("翻唱", " ");
+        return normalize(stripped);
+    }
+
+    private static double bestTitleSimilarity(String title, List<String> entryTitles) {
+        if (title.isBlank() || entryTitles.isEmpty()) return 0;
+        double best = 0;
+        for (String entryTitle : entryTitles) {
+            best = Math.max(best, titleSimilarity(title, entryTitle));
+        }
+        return best;
+    }
+
+    private static double titleSimilarity(String left, String right) {
+        if (left.isBlank() || right.isBlank()) return 0;
+        if (left.equals(right)) return 1;
+
+        int minLength = Math.min(left.length(), right.length());
+        int maxLength = Math.max(left.length(), right.length());
+        if (left.contains(right) || right.contains(left)) {
+            double lengthRatio = (double) minLength / maxLength;
+            if (lengthRatio >= 0.70) return 0.92;
+            if (lengthRatio >= 0.50) return 0.80;
+            return 0.66;
+        }
+
+        double editSimilarity = 1.0 - (double) levenshteinDistance(left, right) / maxLength;
+        return Math.max(editSimilarity, diceCoefficient(left, right));
+    }
+
+    private static double diceCoefficient(String left, String right) {
+        if (left.length() < 2 || right.length() < 2) return 0;
+        Set<String> leftPairs = bigrams(left);
+        Set<String> rightPairs = bigrams(right);
+        int intersection = 0;
+        for (String pair : leftPairs) {
+            if (rightPairs.contains(pair)) intersection++;
+        }
+        return (2.0 * intersection) / (leftPairs.size() + rightPairs.size());
+    }
+
+    private static Set<String> bigrams(String value) {
+        Set<String> pairs = new HashSet<>();
+        for (int index = 0; index < value.length() - 1; index++) {
+            pairs.add(value.substring(index, index + 2));
+        }
+        return pairs;
+    }
+
+    private static int levenshteinDistance(String left, String right) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+        for (int column = 0; column <= right.length(); column++) previous[column] = column;
+        for (int row = 1; row <= left.length(); row++) {
+            current[0] = row;
+            for (int column = 1; column <= right.length(); column++) {
+                int cost = left.charAt(row - 1) == right.charAt(column - 1) ? 0 : 1;
+                current[column] = Math.min(
+                        Math.min(current[column - 1] + 1, previous[column] + 1),
+                        previous[column - 1] + cost
+                );
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return previous[right.length()];
+    }
+
+    private static String nullToBlank(String value) {
+        return value == null ? "" : value;
     }
 
     private static List<String> splitArtists(String value) {
@@ -406,7 +527,19 @@ final class AmllTtmlLoader {
         }
     }
 
-    private record ScoredEntry(IndexEntry entry, int score) {
+    private record MatchScore(int score, double titleSimilarity) {
+    }
+
+    private record ScoredEntry(IndexEntry entry, int score, double titleSimilarity) {
+    }
+
+    private static final class DaemonThreadFactory implements ThreadFactory {
+        @Override
+        public Thread newThread(Runnable runnable) {
+            Thread thread = new Thread(runnable, "amll-ttml-online-search");
+            thread.setDaemon(true);
+            return thread;
+        }
     }
 
     record SearchResult(String rawLyricFile, String title, String artist, String album, int score) {

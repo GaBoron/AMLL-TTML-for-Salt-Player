@@ -14,14 +14,19 @@ This project was built with Codex.
 - Uses the current track metadata in this order: search AMLL first, then load
   local sidecar lyrics or let Salt Player continue with its own metadata/local
   lyric loader.
+- Waits up to 10 seconds for an online AMLL search. If the online search does
+  not finish in time, the plugin immediately falls back to local/default lyrics;
+  the background search may still populate cache for the next playback.
 - Shows a short first lyric line for plugin-loaded lyrics:
   - `来源：AMLL` for AMLL search results and AMLL cache.
   - `来源：本地` for plugin-loaded local sidecar `.ttml`, `.lrc`, or `.spl` files.
 - Hides `[ti]`, `[ar]`, `[al]`, and `[by]` metadata tags so Salt Player does not
   show them as translated lyrics.
-- Caches successful AMLL lyrics for one hour.
-- Records AMLL search misses for 24 hours, then tries again after the cache
+- Caches successful AMLL lyrics permanently.
+- Records AMLL search misses for seven days, then tries again after the cache
   expires.
+- Uses title-first matching: the song title must be similar enough before
+  artist and album metadata can affect automatic matching.
 - Provides a plugin settings button named `手动匹配当前歌曲`.
   - Edit title, artist, and album before searching.
   - Preview the first lyric lines from each AMLL result.
@@ -47,7 +52,7 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 The plugin package is written to:
 
 ```text
-out-release\plugin\AMLL-TTML-Loader-1.0.0.zip
+out-plugin\plugin\AMLL-TTML-Loader-1.0.0.zip
 ```
 
 Install it by copying the zip into:
