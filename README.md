@@ -52,7 +52,7 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 The plugin package is written to:
 
 ```text
-out-plugin\plugin\AMLL-TTML-Loader-1.0.0.zip
+out-cache-fix\plugin\AMLL-TTML-Loader-1.0.0.zip
 ```
 
 Install it by copying the zip into:

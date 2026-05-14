@@ -20,6 +20,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -37,6 +39,7 @@ final class AmllTtmlLoader {
     private static final String SOURCE_LOCAL = "\u672c\u5730";
     private static final Duration MISS_CACHE_MAX_AGE = Duration.ofDays(7);
     private static final ExecutorService ONLINE_SEARCH_EXECUTOR = Executors.newFixedThreadPool(2, new DaemonThreadFactory());
+    private static final ConcurrentMap<String, LoadResult> MEMORY_RESULT_CACHE = new ConcurrentHashMap<>();
     private static final String INDEX_URL =
             "https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main/metadata/raw-lyrics-index.jsonl";
     private static final String RAW_LYRICS_BASE_URL =
@@ -72,19 +75,24 @@ final class AmllTtmlLoader {
             if (OVERRIDE_LOCAL.equals(override)) return null;
             if (override != null && override.endsWith(".ttml")) {
                 String cached = readCachedLyrics(songKey, override);
-                if (cached != null) return new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL);
-                return loadRawLyric(mediaItem, songKey, override);
+                if (cached != null) return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+                return remember(songKey, loadRawLyric(mediaItem, songKey, override));
             }
 
-            String cached = readCachedLyrics(songKey);
-            if (cached != null) return new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL);
+            LoadResult memoryResult = MEMORY_RESULT_CACHE.get(songKey);
+            if (memoryResult != null && SOURCE_AMLL.equals(memoryResult.source)) return memoryResult;
 
-            if (hasRecentMiss(songKey)) return loadLocalLyrics(mediaItem).orElse(null);
+            String cached = readCachedLyrics(songKey);
+            if (cached != null) return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+
+            if (memoryResult != null) return memoryResult;
+
+            if (hasRecentMiss(songKey)) return rememberLocalFallback(mediaItem, songKey);
             return loadOnlineWithTimeout(mediaItem, songKey);
         } catch (Exception error) {
             System.out.println("AMLL TTML Loader failed: " + error.getMessage());
             try {
-                return loadLocalLyrics(mediaItem).orElse(null);
+                return remember(cacheKey(mediaItem), loadLocalLyrics(mediaItem).orElse(null));
             } catch (Exception localError) {
                 System.out.println("AMLL TTML Loader local fallback failed: " + localError.getMessage());
                 return null;
@@ -96,14 +104,27 @@ final class AmllTtmlLoader {
         var future = ONLINE_SEARCH_EXECUTOR.submit((Callable<LoadResult>) () -> loadOnlineLyrics(mediaItem, songKey));
         try {
             LoadResult result = future.get(ONLINE_SEARCH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            return result != null ? result : loadLocalLyrics(mediaItem).orElse(null);
+            return result != null ? remember(songKey, result) : rememberLocalFallback(mediaItem, songKey);
         } catch (TimeoutException timeout) {
             System.out.println("AMLL TTML Loader online search timed out after " + ONLINE_SEARCH_TIMEOUT.toSeconds() + " seconds.");
-            return loadLocalLyrics(mediaItem).orElse(null);
+            writeMiss(songKey);
+            return rememberLocalFallback(mediaItem, songKey);
         } catch (Exception error) {
             System.out.println("AMLL TTML Loader online search failed: " + error.getMessage());
-            return loadLocalLyrics(mediaItem).orElse(null);
+            writeMiss(songKey);
+            return rememberLocalFallback(mediaItem, songKey);
         }
+    }
+
+    private LoadResult rememberLocalFallback(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+        return remember(songKey, loadLocalLyrics(mediaItem).orElse(null));
+    }
+
+    private LoadResult remember(String songKey, LoadResult result) {
+        if (result != null) {
+            MEMORY_RESULT_CACHE.put(songKey, result);
+        }
+        return result;
     }
 
     private LoadResult loadOnlineLyrics(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
@@ -182,11 +203,13 @@ final class AmllTtmlLoader {
     }
 
     void saveOverride(String songKey, String rawLyricFile) throws IOException {
+        MEMORY_RESULT_CACHE.remove(songKey);
         writeOverride(songKey, rawLyricFile);
         clearMiss(songKey);
     }
 
     void saveLocalOverride(String songKey) throws IOException {
+        MEMORY_RESULT_CACHE.remove(songKey);
         writeOverride(songKey, OVERRIDE_LOCAL);
         clearMiss(songKey);
     }
@@ -351,6 +374,7 @@ final class AmllTtmlLoader {
         lines.removeIf(line -> line.startsWith(songKey + "\t"));
         lines.add(String.join("\t", songKey, rawLyricFile, lyricName, Instant.now().toString(), CACHE_VERSION));
         Files.write(songCache, lines, StandardCharsets.UTF_8);
+        clearMiss(songKey);
     }
 
     private String fetchText(String url) throws IOException {
