@@ -1,0 +1,17 @@
+{
+  "configs": [
+    {
+      "title": "AMLL TTML",
+      "config": "manual-match.json",
+      "preferences": [
+        {
+          "type": "button",
+          "title": "\u624b\u52a8\u5339\u914d\u5f53\u524d\u6b4c\u66f2",
+          "summary": "\u641c\u7d22 AMLL \u6b4c\u8bcd\u5e93\uff0c\u6216\u8ba9\u5f53\u524d\u6b4c\u66f2\u6539\u7528\u672c\u5730/\u5143\u6570\u636e\u6b4c\u8bcd",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.openManualMatcher"
+        }
+      ]
+    }
+  ]
+}
