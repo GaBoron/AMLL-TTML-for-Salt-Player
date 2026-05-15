@@ -1,9 +1,9 @@
-plugins {
+﻿plugins {
     `java-library`
 }
 
 group = "dev.amll.saltplayer"
-version = "1.0.0"
+version = "1.0.1"
 
 layout.buildDirectory.set(file("out"))
 
@@ -29,7 +29,7 @@ val pluginName = "AMLL TTML Loader"
 val pluginDescription = "Searches AMLL TTML DB, converts TTML word lyrics to Salt Player SPL, and falls back to local lyrics."
 val pluginVersion = project.version.toString()
 val pluginProvider = "GaBoron"
-val pluginRepository = "https://github.com/amll-dev/amll-ttml-db"
+val pluginRepository = "https://github.com/GaBoron/AMLL-TTML-for-Salt-Player"
 
 tasks.named<Jar>("jar") {
     includeEmptyDirs = false
@@ -61,3 +61,6 @@ tasks.register<Jar>("plugin") {
         from(emptyList<File>())
     }
 }
+
+
+

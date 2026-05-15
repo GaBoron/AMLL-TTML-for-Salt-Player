@@ -1,95 +1,167 @@
 # AMLL TTML Loader for Salt Player
 
-AMLL TTML Loader is a Salt Player for Windows plugin that searches AMLL TTML DB,
-loads TTML lyrics, converts them into Salt Player compatible timed lyrics, and
-falls back to local lyrics when no reliable online match is available.
+**简体中文** | [English](README.en.md)
 
-This project was built with assistance from Codex.
+这是一个 Salt Player for Windows 插件，用于从 AMLL TTML DB 搜索、加载并转换逐词 TTML 歌词，让 Salt Player 可以显示更接近 AMLL 风格的歌词效果。当在线匹配不可靠或无法获取时，插件会自动回退到本地或默认歌词。
 
-## Features
+本项目由 Codex 协助完成。
 
-- Searches `amll-dev/amll-ttml-db` using the current track title, artist, and
-  album metadata.
-- Converts TTML word-level lyrics into SPL-style timed lyrics for Salt Player.
-- Handles main lyrics, duet/agent lines, translations, romanization, and
-  background vocals.
-- Uses title-first automatic matching to reduce incorrect lyric matches.
-- Waits up to 10 seconds for an online AMLL search, then falls back to local or
-  default Salt Player lyrics if the search is still pending.
-- Permanently caches successful AMLL matches so the same song can load
-  immediately next time.
-- Records failed automatic matches for seven days, then retries after the miss
-  cache expires.
-- Shows a compact source line for plugin-loaded lyrics: `来源：AMLL` or
-  `来源：本地`.
-- Provides a manual matching dialog from the plugin settings page, including
-  editable title/artist/album fields, AMLL search results, lyric previews, and a
-  local/default override option.
+## 功能
 
-## Installation
+- 根据当前歌曲标题、歌手、专辑信息搜索 AMLL TTML DB。
+- 将 TTML 逐词歌词转换为 Salt Player 可用的 SPL 样式歌词。
+- 支持主歌词、对唱/角色行、翻译、罗马音、背景人声。
+- 使用标题优先的自动匹配策略，减少错误匹配。
+- 在线搜索等待最多 10 秒，失败或超时则回退到本地/默认歌词。
+- 缓存成功匹配，之后同一首歌可快速加载。
+- 自动匹配失败记录 7 天，过期后重新尝试。
+- 显示紧凑来源行：`来源：AMLL` 或 `来源：本地`。
+- 提供手动匹配对话框，支持编辑标题/歌手/专辑、预览搜索结果，并可强制使用本地/默认歌词。
+- 新增运行日志，便于排查插件加载、在线搜索、TTML 转换、缓存读写和手动匹配问题。
 
-1. Download `AMLL-TTML-Loader-1.0.0.zip` from the latest GitHub Release.
-2. Copy the zip file to:
+## 截图
+
+### 自动加载 AMLL 歌词
+
+![自动加载 AMLL 歌词](docs/images/lyrics-page.png)
+
+### 手动匹配当前歌曲
+
+![手动匹配当前歌曲](docs/images/manual-match-dialog.png)
+
+## 前置要求
+
+普通用户：
+
+- Windows
+- Salt Player for Windows
+- 能访问 AMLL TTML DB / GitHub raw 相关资源
+
+开发者构建：
+
+- JDK 21
+- 首次运行 Gradle Wrapper 需要网络，除非本地已有缓存
+
+普通用户安装插件不需要 JDK 21。JDK 21 只在从源码构建时需要。
+
+## 安装方法
+
+1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.1.zip`。
+2. 将 zip 文件复制到：
 
    ```text
    %APPDATA%\Salt Player for Windows\workshop\plugins
    ```
 
-3. Restart Salt Player for Windows.
-4. Optional: open the plugin settings and use `手动匹配当前歌曲` to manually choose
-   an AMLL result or force the current song to use local/default lyrics.
+3. 重启 Salt Player for Windows。
+4. 可选：打开插件设置，使用 `手动匹配当前歌曲` 手动选择 AMLL 结果，或强制当前歌曲使用本地/默认歌词。
 
-## Build from Source
+## 从源码构建
 
-Requirements:
-
-- JDK 21
-- Network access for the first Gradle wrapper run, unless Gradle is already
-  cached locally
-
-Build the plugin package:
+运行：
 
 ```powershell
 .\gradlew.bat --no-daemon plugin
 ```
 
-The plugin package is written to:
+输出文件：
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.0.zip
+out\plugin\AMLL-TTML-Loader-1.0.1.zip
 ```
 
-## Cache and Overrides
+## 缓存与手动覆盖
 
-The plugin stores cache and manual overrides under:
+插件会将缓存和手动覆盖记录保存到：
 
 ```text
 %APPDATA%\Salt Player for Windows\workshop\amll-ttml-loader-cache
 ```
 
-Important files:
+重要文件：
 
-- `raw-lyrics-index.jsonl`: cached AMLL index
-- `song-cache.tsv`: successful AMLL lyric matches
-- `manual-overrides.tsv`: manual AMLL or local/default choices
-- `miss-cache.tsv`: seven-day automatic-match miss records
-- `lyrics\*.spl`: converted lyric cache
+- `raw-lyrics-index.jsonl`：缓存的 AMLL 歌词索引
+- `song-cache.tsv`：成功的 AMLL 歌词匹配记录
+- `manual-overrides.tsv`：手动选择 AMLL 或本地/默认歌词的记录
+- `miss-cache.tsv`：7 天自动匹配失败记录
+- `lyrics\*.spl`：转换后的歌词缓存
 
-## Limitations
+## 运行日志
 
-- Salt Player's current plugin API only lets plugins provide lyrics before Salt
-  Player loads them. The plugin cannot reliably show local lyrics first and then
-  replace them with online lyrics during the same playback.
-- Embedded metadata lyrics loaded internally by Salt Player cannot be tagged with
-  a source line by this plugin.
-- Online matching depends on AMLL TTML DB coverage, current network access, and
-  the quality of the track metadata.
+运行日志用于排查插件加载、在线搜索、自动匹配、TTML 转换、缓存读写、手动匹配和歌词回退问题。
 
-## Credits
+日志文件保存到：
 
-- [amll-dev/amll-ttml-db](https://github.com/amll-dev/amll-ttml-db) for the TTML
-  lyric database.
-- [Moriafly/spw-workshop-api](https://github.com/Moriafly/spw-workshop-api) for
-  the Salt Player workshop API reference.
-- Salt Player for Windows for the plugin platform.
-- PF4J and Gradle for the plugin and build ecosystem.
+```text
+%APPDATA%\Salt Player for Windows\workshop\amll-ttml-loader-cache\logs
+```
+
+日志按日期命名，例如：
+
+```text
+amll-ttml-loader-2026-05-15.log
+```
+
+日志格式示例：
+
+```text
+[2026-05-15 20:30:12] [INFO] [SEARCH] Searching AMLL TTML DB: title="xxx", artist="xxx"
+```
+
+日志默认开启。你可以在插件设置中：
+
+- 启用或关闭运行日志
+- 切换普通或详细日志
+- 打开日志目录
+- 清理日志
+
+插件会自动清理旧日志，保留最近 7 天或最近 10 个日志文件。日志写入失败不会影响歌词加载。
+
+反馈 bug 时，建议附上相关日志片段；请不要提交包含隐私信息的完整日志。
+
+## 网络与隐私说明
+
+- 插件会根据当前歌曲的标题、歌手、专辑信息请求 AMLL TTML DB，用于搜索匹配歌词。
+- 插件不会上传音频文件。
+- 插件不会上传用户账号信息。
+- 歌词索引、匹配结果和转换后的歌词会缓存在本地。
+- 如果你介意网络请求，可以选择停用插件或使用本地/默认歌词。
+
+## 故障排除
+
+### 没有加载 AMLL 歌词
+
+可能原因：
+
+- 当前歌曲标题、歌手或专辑信息不完整。
+- AMLL TTML DB 没有收录该歌曲。
+- GitHub raw 或相关资源无法访问。
+- 自动匹配结果不够可靠，插件回退到了本地歌词。
+- 之前的匹配失败结果仍在 7 天 miss cache 中。
+
+解决方法：
+
+- 检查歌曲元数据。
+- 打开插件设置，使用 `手动匹配当前歌曲`。
+- 删除缓存后重试。
+- 检查网络连接。
+- 选择本地/默认歌词覆盖当前歌曲。
+- 查看 `运行日志` 中的日志文件。
+
+## 限制说明
+
+- Salt Player 当前插件 API 只允许插件在歌词加载前提供歌词，本插件无法可靠地在同一次播放中先显示本地歌词再替换为在线歌词。
+- Salt Player 内部加载的内嵌元数据歌词无法由本插件添加来源行。
+- 本插件依赖 AMLL TTML DB 的索引和仓库结构，如果上游结构变化，搜索或加载可能暂时失效。
+- 在线歌词匹配效果受歌曲元数据质量影响。
+- 插件不能保证所有歌曲都能找到准确歌词。
+
+## 第三方说明
+
+- [AMLL TTML DB](https://github.com/amll-dev/amll-ttml-db)：歌词数据来源，使用 CC0-1.0
+- Salt Player for Windows：插件运行平台
+- [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api)：Salt Player workshop API 参考
+- PF4J：插件机制相关
+- Gradle：构建工具
+
+本插件只负责搜索、转换、缓存和显示歌词。歌词内容来自 AMLL TTML DB。用户应尊重原音乐作品、歌词文本及相关权利人的权益。

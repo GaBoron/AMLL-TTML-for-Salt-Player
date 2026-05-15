@@ -10,6 +10,48 @@
           "summary": "\u641c\u7d22 AMLL \u6b4c\u8bcd\u5e93\uff0c\u6216\u8ba9\u5f53\u524d\u6b4c\u66f2\u6539\u7528\u672c\u5730/\u5143\u6570\u636e\u6b4c\u8bcd",
           "arrow_type": "none",
           "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.openManualMatcher"
+        },
+        {
+          "type": "button",
+          "title": "\u542f\u7528\u8fd0\u884c\u65e5\u5fd7",
+          "summary": "\u9ed8\u8ba4\u5f00\u542f\uff0c\u7528\u4e8e\u6392\u67e5\u641c\u7d22\u3001\u5339\u914d\u3001\u8f6c\u6362\u3001\u7f13\u5b58\u548c\u56de\u9000\u95ee\u9898",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.enableRuntimeLogs"
+        },
+        {
+          "type": "button",
+          "title": "\u5173\u95ed\u8fd0\u884c\u65e5\u5fd7",
+          "summary": "\u505c\u6b62\u5199\u5165\u65b0\u7684\u8fd0\u884c\u65e5\u5fd7",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.disableRuntimeLogs"
+        },
+        {
+          "type": "button",
+          "title": "\u65e5\u5fd7\u8be6\u7ec6\u7a0b\u5ea6\uff1a\u666e\u901a",
+          "summary": "\u8bb0\u5f55\u5173\u952e\u8fd0\u884c\u4e8b\u4ef6\u548c\u9519\u8bef",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.setNormalLogs"
+        },
+        {
+          "type": "button",
+          "title": "\u65e5\u5fd7\u8be6\u7ec6\u7a0b\u5ea6\uff1a\u8be6\u7ec6",
+          "summary": "\u989d\u5916\u8bb0\u5f55\u7f13\u5b58\u548c\u8bf7\u6c42\u7ec6\u8282\uff0c\u4fbf\u4e8e\u6df1\u5165\u6392\u67e5",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.setVerboseLogs"
+        },
+        {
+          "type": "button",
+          "title": "\u6253\u5f00\u65e5\u5fd7\u76ee\u5f55",
+          "summary": "\u6253\u5f00 AMLL TTML Loader \u7684\u672c\u5730\u65e5\u5fd7\u6587\u4ef6\u5939",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.openLogDirectory"
+        },
+        {
+          "type": "button",
+          "title": "\u6e05\u7406\u65e5\u5fd7",
+          "summary": "\u5220\u9664\u5df2\u4fdd\u5b58\u7684 AMLL TTML Loader \u65e5\u5fd7\u6587\u4ef6",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.clearLogs"
         }
       ]
     }

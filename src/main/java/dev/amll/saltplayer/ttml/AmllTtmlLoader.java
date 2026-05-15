@@ -69,32 +69,53 @@ final class AmllTtmlLoader {
         try {
             Files.createDirectories(cacheRoot);
             Files.createDirectories(lyricsCache);
+            AmllLogger.verbose("CACHE", "Cache root prepared. Logs: " + AmllLogger.logRoot());
 
             String songKey = cacheKey(mediaItem);
             String override = readOverride(songKey);
-            if (OVERRIDE_LOCAL.equals(override)) return null;
+            if (OVERRIDE_LOCAL.equals(override)) {
+                AmllLogger.info("MANUAL", "Manual local/default override hit.");
+                AmllLogger.info("FALLBACK", "Falling back because the current track is manually set to local/default lyrics.");
+                return null;
+            }
             if (override != null && override.endsWith(".ttml")) {
+                AmllLogger.info("MANUAL", "Manual AMLL override hit: " + override + ".");
                 String cached = readCachedLyrics(songKey, override);
-                if (cached != null) return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+                if (cached != null) {
+                    AmllLogger.info("CACHE", "Loaded manually selected AMLL lyrics from cache.");
+                    return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+                }
                 return remember(songKey, loadRawLyric(mediaItem, songKey, override));
             }
 
             LoadResult memoryResult = MEMORY_RESULT_CACHE.get(songKey);
-            if (memoryResult != null && SOURCE_AMLL.equals(memoryResult.source)) return memoryResult;
+            if (memoryResult != null && SOURCE_AMLL.equals(memoryResult.source)) {
+                AmllLogger.info("CACHE", "Loaded AMLL lyrics from memory cache.");
+                return memoryResult;
+            }
 
             String cached = readCachedLyrics(songKey);
-            if (cached != null) return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+            if (cached != null) {
+                AmllLogger.info("CACHE", "Loaded AMLL lyrics from converted lyric cache.");
+                return remember(songKey, new LoadResult(withSourceTag(cached, SOURCE_AMLL), SOURCE_AMLL));
+            }
 
-            if (memoryResult != null) return memoryResult;
+            if (memoryResult != null) {
+                AmllLogger.info("CACHE", "Loaded previous fallback result from memory cache.");
+                return memoryResult;
+            }
 
-            if (hasRecentMiss(songKey)) return rememberLocalFallback(mediaItem, songKey);
+            if (hasRecentMiss(songKey)) {
+                AmllLogger.info("CACHE", "Recent miss cache hit; skipping automatic online match.");
+                return rememberLocalFallback(mediaItem, songKey, "recent miss cache");
+            }
             return loadOnlineWithTimeout(mediaItem, songKey);
         } catch (Exception error) {
-            System.out.println("AMLL TTML Loader failed: " + error.getMessage());
+            AmllLogger.error("FALLBACK", "AMLL lyric loading failed; trying local/default fallback.", error);
             try {
                 return remember(cacheKey(mediaItem), loadLocalLyrics(mediaItem).orElse(null));
             } catch (Exception localError) {
-                System.out.println("AMLL TTML Loader local fallback failed: " + localError.getMessage());
+                AmllLogger.error("FALLBACK", "Local/default fallback failed.", localError);
                 return null;
             }
         }
@@ -104,19 +125,20 @@ final class AmllTtmlLoader {
         var future = ONLINE_SEARCH_EXECUTOR.submit((Callable<LoadResult>) () -> loadOnlineLyrics(mediaItem, songKey));
         try {
             LoadResult result = future.get(ONLINE_SEARCH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            return result != null ? remember(songKey, result) : rememberLocalFallback(mediaItem, songKey);
+            return result != null ? remember(songKey, result) : rememberLocalFallback(mediaItem, songKey, "no reliable AMLL match");
         } catch (TimeoutException timeout) {
-            System.out.println("AMLL TTML Loader online search timed out after " + ONLINE_SEARCH_TIMEOUT.toSeconds() + " seconds.");
+            AmllLogger.warn("SEARCH", "Online search timed out after " + ONLINE_SEARCH_TIMEOUT.toSeconds() + " seconds.");
             writeMiss(songKey);
-            return rememberLocalFallback(mediaItem, songKey);
+            return rememberLocalFallback(mediaItem, songKey, "online search timeout");
         } catch (Exception error) {
-            System.out.println("AMLL TTML Loader online search failed: " + error.getMessage());
+            AmllLogger.error("SEARCH", "Online search failed.", error);
             writeMiss(songKey);
-            return rememberLocalFallback(mediaItem, songKey);
+            return rememberLocalFallback(mediaItem, songKey, "online search failure");
         }
     }
 
-    private LoadResult rememberLocalFallback(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+    private LoadResult rememberLocalFallback(PlaybackExtensionPoint.MediaItem mediaItem, String songKey, String reason) throws Exception {
+        AmllLogger.info("FALLBACK", "Using local/default lyrics. Reason: " + reason + ".");
         return remember(songKey, loadLocalLyrics(mediaItem).orElse(null));
     }
 
@@ -128,36 +150,54 @@ final class AmllTtmlLoader {
     }
 
     private LoadResult loadOnlineLyrics(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+        AmllLogger.info("SEARCH", "Searching AMLL TTML DB: title=\"" + AmllLogger.safeText(mediaItem.getTitle())
+                + "\", artist=\"" + AmllLogger.safeText(mediaItem.getArtist())
+                + "\", album=\"" + AmllLogger.safeText(mediaItem.getAlbum()) + "\".");
         IndexEntry match = findBestMatch(mediaItem);
         if (match == null) {
+            AmllLogger.info("SEARCH", "No reliable match from cached index; refreshing AMLL index.");
             refreshIndex();
             match = findBestMatch(mediaItem);
         }
         if (match == null) {
+            AmllLogger.info("MATCH", "Automatic match failed or score gap was not reliable enough.");
             writeMiss(songKey);
             return null;
         }
 
+        AmllLogger.info("MATCH", "Automatic AMLL match selected: " + match.rawLyricFile + ".");
         String ttml = fetchText(RAW_LYRICS_BASE_URL + match.rawLyricFile);
+        AmllLogger.info("SEARCH", "Downloaded TTML lyric: " + match.rawLyricFile + ".");
         String spl = TtmlToSplConverter.convert(ttml, mediaItem);
         if (spl.isBlank()) {
+            AmllLogger.warn("CONVERT", "TTML conversion returned empty lyrics for " + match.rawLyricFile + ".");
             writeMiss(songKey);
             return null;
         }
+        AmllLogger.info("CONVERT", "Converted TTML to Salt Player SPL-style lyrics.");
 
         writeCachedLyrics(songKey, match.rawLyricFile, spl);
         return new LoadResult(withSourceTag(spl, SOURCE_AMLL), SOURCE_AMLL);
     }
 
     LoadResult loadRawLyric(PlaybackExtensionPoint.MediaItem mediaItem, String songKey, String rawLyricFile) throws Exception {
+        AmllLogger.info("MANUAL", "Loading manually selected TTML lyric: " + rawLyricFile + ".");
         String ttml = fetchText(RAW_LYRICS_BASE_URL + rawLyricFile);
+        AmllLogger.info("SEARCH", "Downloaded manually selected TTML lyric: " + rawLyricFile + ".");
         String spl = TtmlToSplConverter.convert(ttml, mediaItem);
-        if (spl.isBlank()) return null;
+        if (spl.isBlank()) {
+            AmllLogger.warn("CONVERT", "Manual TTML conversion returned empty lyrics for " + rawLyricFile + ".");
+            return null;
+        }
+        AmllLogger.info("CONVERT", "Converted manually selected TTML lyric.");
         writeCachedLyrics(songKey, rawLyricFile, spl);
         return new LoadResult(withSourceTag(spl, SOURCE_AMLL), SOURCE_AMLL);
     }
 
     List<SearchResult> search(String title, String artist, String album, int limit) throws Exception {
+        AmllLogger.info("MANUAL", "Manual search requested: title=\"" + AmllLogger.safeText(title)
+                + "\", artist=\"" + AmllLogger.safeText(artist)
+                + "\", album=\"" + AmllLogger.safeText(album) + "\".");
         PlaybackExtensionPoint.MediaItem query = new PlaybackExtensionPoint.MediaItem(title, artist, album, "", "");
         List<ScoredEntry> scored = new ArrayList<>();
         try (Stream<String> lines = readIndexLines()) {
@@ -186,10 +226,12 @@ final class AmllTtmlLoader {
                     item.score
             ));
         }
+        AmllLogger.info("MANUAL", "Manual search returned " + results.size() + " result(s).");
         return results;
     }
 
     String preview(PlaybackExtensionPoint.MediaItem mediaItem, String rawLyricFile, int lines) throws Exception {
+        AmllLogger.info("MANUAL", "Loading manual preview for " + rawLyricFile + ".");
         String spl = TtmlToSplConverter.convert(fetchText(RAW_LYRICS_BASE_URL + rawLyricFile), mediaItem);
         StringBuilder preview = new StringBuilder();
         int count = 0;
@@ -206,26 +248,37 @@ final class AmllTtmlLoader {
         MEMORY_RESULT_CACHE.remove(songKey);
         writeOverride(songKey, rawLyricFile);
         clearMiss(songKey);
+        AmllLogger.info("MANUAL", "Saved manual AMLL override: " + rawLyricFile + ".");
     }
 
     void saveLocalOverride(String songKey) throws IOException {
         MEMORY_RESULT_CACHE.remove(songKey);
         writeOverride(songKey, OVERRIDE_LOCAL);
         clearMiss(songKey);
+        AmllLogger.info("MANUAL", "Saved manual local/default override.");
     }
 
     private Optional<LoadResult> loadLocalLyrics(PlaybackExtensionPoint.MediaItem mediaItem) throws Exception {
-        if (mediaItem.getPath() == null || mediaItem.getPath().isBlank()) return Optional.empty();
+        if (mediaItem.getPath() == null || mediaItem.getPath().isBlank()) {
+            AmllLogger.info("FALLBACK", "No local audio path is available for local lyric lookup.");
+            return Optional.empty();
+        }
 
         Path audioPath = Path.of(mediaItem.getPath());
         Path parent = audioPath.getParent();
         Path fileNamePath = audioPath.getFileName();
-        if (parent == null || fileNamePath == null) return Optional.empty();
+        if (parent == null || fileNamePath == null) {
+            AmllLogger.info("FALLBACK", "Local lyric lookup skipped because the audio path has no parent or file name.");
+            return Optional.empty();
+        }
 
         String fileName = fileNamePath.toString();
         int dot = fileName.lastIndexOf('.');
         String stem = dot > 0 ? fileName.substring(0, dot) : fileName;
-        if (stem.isBlank()) return Optional.empty();
+        if (stem.isBlank()) {
+            AmllLogger.info("FALLBACK", "Local lyric lookup skipped because the audio file name is blank.");
+            return Optional.empty();
+        }
 
         for (String extension : List.of(".ttml", ".lrc", ".spl")) {
             Path lyricPath = parent.resolve(stem + extension);
@@ -234,10 +287,13 @@ final class AmllTtmlLoader {
             String lyrics = Files.readString(lyricPath, StandardCharsets.UTF_8);
             if (lyrics.isBlank()) continue;
             if (extension.equals(".ttml")) {
+                AmllLogger.info("CONVERT", "Converting local TTML fallback lyrics.");
                 lyrics = TtmlToSplConverter.convert(lyrics, mediaItem);
             }
+            AmllLogger.info("FALLBACK", "Loaded local fallback lyric file with extension " + extension + ".");
             return Optional.of(new LoadResult(withSourceTag(lyrics, SOURCE_LOCAL), SOURCE_LOCAL));
         }
+        AmllLogger.info("FALLBACK", "No local fallback lyric file found beside the current track.");
         return Optional.empty();
     }
 
@@ -269,13 +325,20 @@ final class AmllTtmlLoader {
 
         scored.sort(Comparator.comparingInt((ScoredEntry item) -> item.score).reversed()
                 .thenComparing(Comparator.comparingDouble((ScoredEntry item) -> item.titleSimilarity).reversed()));
-        if (scored.isEmpty()) return null;
+        if (scored.isEmpty()) {
+            AmllLogger.info("MATCH", "No candidate passed automatic match thresholds.");
+            return null;
+        }
 
         ScoredEntry best = scored.get(0);
         ScoredEntry second = scored.size() > 1 ? scored.get(1) : null;
+        AmllLogger.info("MATCH", "Best automatic candidate score=" + best.score
+                + ", titleSimilarity=" + String.format(Locale.ROOT, "%.3f", best.titleSimilarity)
+                + ", file=" + best.entry.rawLyricFile + ".");
         if (second == null || best.score - second.score >= 18 || best.score >= 175 && best.score - second.score >= 8) {
             return best.entry;
         }
+        AmllLogger.info("MATCH", "Best candidate rejected because score gap was too small. secondScore=" + second.score + ".");
         return null;
     }
 
@@ -287,11 +350,16 @@ final class AmllTtmlLoader {
     }
 
     private void refreshIndex() throws IOException, InterruptedException {
+        AmllLogger.info("SEARCH", "Refreshing AMLL TTML DB index.");
         Files.writeString(indexCache, fetchText(INDEX_URL), StandardCharsets.UTF_8);
+        AmllLogger.info("SEARCH", "AMLL TTML DB index refreshed.");
     }
 
     private String readOverride(String songKey) throws IOException {
-        if (!Files.isRegularFile(overrideCache)) return null;
+        if (!Files.isRegularFile(overrideCache)) {
+            AmllLogger.verbose("CACHE", "Manual override cache does not exist.");
+            return null;
+        }
         for (String line : Files.readAllLines(overrideCache, StandardCharsets.UTF_8)) {
             int firstTab = line.indexOf('\t');
             if (firstTab < 0 || !line.substring(0, firstTab).equals(songKey)) continue;
@@ -309,6 +377,7 @@ final class AmllTtmlLoader {
         lines.removeIf(line -> line.startsWith(songKey + "\t"));
         lines.add(String.join("\t", songKey, value, Instant.now().toString(), "manual"));
         Files.write(overrideCache, lines, StandardCharsets.UTF_8);
+        AmllLogger.info("CACHE", "Manual override cache updated.");
     }
 
     private boolean hasRecentMiss(String songKey) throws IOException {
@@ -333,6 +402,7 @@ final class AmllTtmlLoader {
         lines.removeIf(line -> line.startsWith(songKey + "\t"));
         lines.add(songKey + "\t" + Instant.now());
         Files.write(missCache, lines, StandardCharsets.UTF_8);
+        AmllLogger.info("CACHE", "Miss cache updated.");
     }
 
     private void clearMiss(String songKey) throws IOException {
@@ -340,6 +410,7 @@ final class AmllTtmlLoader {
         List<String> lines = new ArrayList<>(Files.readAllLines(missCache, StandardCharsets.UTF_8));
         lines.removeIf(line -> line.startsWith(songKey + "\t"));
         Files.write(missCache, lines, StandardCharsets.UTF_8);
+        AmllLogger.info("CACHE", "Miss cache cleared for current track.");
     }
 
     private String readCachedLyrics(String songKey) throws IOException {
@@ -347,7 +418,10 @@ final class AmllTtmlLoader {
     }
 
     private String readCachedLyrics(String songKey, String expectedRawLyricFile) throws IOException {
-        if (!Files.isRegularFile(songCache)) return null;
+        if (!Files.isRegularFile(songCache)) {
+            AmllLogger.verbose("CACHE", "Song cache does not exist.");
+            return null;
+        }
 
         for (String line : Files.readAllLines(songCache, StandardCharsets.UTF_8)) {
             int firstTab = line.indexOf('\t');
@@ -359,6 +433,7 @@ final class AmllTtmlLoader {
 
             Path lyricPath = lyricsCache.resolve(fields[2]).normalize();
             if (!lyricPath.startsWith(lyricsCache) || !Files.isRegularFile(lyricPath)) return null;
+            AmllLogger.info("CACHE", "Converted lyric cache hit.");
             return Files.readString(lyricPath, StandardCharsets.UTF_8);
         }
         return null;
@@ -375,17 +450,20 @@ final class AmllTtmlLoader {
         lines.add(String.join("\t", songKey, rawLyricFile, lyricName, Instant.now().toString(), CACHE_VERSION));
         Files.write(songCache, lines, StandardCharsets.UTF_8);
         clearMiss(songKey);
+        AmllLogger.info("CACHE", "Converted lyric cache written for " + rawLyricFile + ".");
     }
 
     private String fetchText(String url) throws IOException {
+        AmllLogger.verbose("SEARCH", "Requesting remote text: " + url + ".");
         HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
         connection.setConnectTimeout(5_000);
         connection.setReadTimeout(10_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0");
+        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.1");
 
         int status = connection.getResponseCode();
+        AmllLogger.info("SEARCH", "Remote request completed with HTTP " + status + ".");
         if (status < 200 || status > 299) {
             throw new IOException("HTTP " + status + " for " + url);
         }

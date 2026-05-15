@@ -10,10 +10,15 @@ public final class AmllLyricsExtension implements PlaybackExtensionPoint {
     @Override
     public String onBeforeLoadLyrics(PlaybackExtensionPoint.MediaItem mediaItem) {
         ManualMatcher.setCurrentMediaItem(mediaItem);
+        AmllLogger.info("INIT", "Loading lyrics for current track: title=\"" + AmllLogger.safeText(mediaItem.getTitle())
+                + "\", artist=\"" + AmllLogger.safeText(mediaItem.getArtist())
+                + "\", album=\"" + AmllLogger.safeText(mediaItem.getAlbum()) + "\".");
         LoadResult result = loader.load(mediaItem);
         if (result != null) {
+            AmllLogger.info("INIT", "Lyrics loaded from source: " + result.source + ".");
             return result.lyrics;
         }
+        AmllLogger.warn("FALLBACK", "No plugin lyrics returned; Salt Player will continue with its default behavior.");
         return null;
     }
 }

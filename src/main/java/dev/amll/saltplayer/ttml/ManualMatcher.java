@@ -44,9 +44,11 @@ final class ManualMatcher {
         installSystemLookAndFeel();
         PlaybackExtensionPoint.MediaItem mediaItem = currentMediaItem;
         if (mediaItem == null) {
+            AmllLogger.warn("MANUAL", "Manual matcher opened without a current media item.");
             JOptionPane.showMessageDialog(null, "请先播放一首歌。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+        AmllLogger.info("MANUAL", "Manual matcher opened.");
 
         JDialog dialog = new JDialog((JFrame) null, "AMLL 手动匹配", false);
         JTextField titleField = new JTextField(mediaItem.getTitle(), 28);
@@ -110,6 +112,7 @@ final class ManualMatcher {
                 JOptionPane.showMessageDialog(dialog, "已保存：来源 AMLL。重新播放当前歌曲后生效。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
             } catch (Exception error) {
+                AmllLogger.error("MANUAL", "Failed to save manual AMLL override.", error);
                 showError(dialog, error);
             }
         });
@@ -119,6 +122,7 @@ final class ManualMatcher {
                 JOptionPane.showMessageDialog(dialog, "已保存：使用本地/元数据歌词。重新播放当前歌曲后生效。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
                 dialog.dispose();
             } catch (Exception error) {
+                AmllLogger.error("MANUAL", "Failed to save manual local/default override.", error);
                 showError(dialog, error);
             }
         });
@@ -171,6 +175,7 @@ final class ManualMatcher {
                     for (AmllTtmlLoader.SearchResult result : results) model.addElement(result);
                     preview.setText(results.isEmpty() ? "没有找到结果。可以修改歌名/歌手/专辑后再搜。" : "选择一个结果查看前几句歌词。");
                 } catch (Exception error) {
+                    AmllLogger.error("MANUAL", "Manual search failed.", error);
                     preview.setText("搜索失败：" + error.getMessage());
                 }
             }
@@ -191,6 +196,7 @@ final class ManualMatcher {
                 try {
                     preview.setText(get());
                 } catch (Exception error) {
+                    AmllLogger.error("MANUAL", "Manual preview failed.", error);
                     preview.setText("预览失败：" + error.getMessage());
                 }
             }
