@@ -2,8 +2,17 @@ name: Build
 
 on:
   push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish when manually dispatched
+        required: false
+        default: v1.0.1
 
 permissions:
   contents: write
@@ -33,19 +42,11 @@ jobs:
           path: out/plugin/AMLL-TTML-Loader-*.zip
           if-no-files-found: error
 
-      - name: Publish v1.0.1 release asset
-        if: github.ref == 'refs/heads/main'
+      - name: Publish release asset
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: AMLL TTML Loader for Salt Player v1.0.1
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           files: out/plugin/AMLL-TTML-Loader-*.zip
           fail_on_unmatched_files: true
           overwrite_files: true
-          body: |
-            - Added runtime logs for easier troubleshooting.
-            - Added plugin settings for log control.
-            - Logs now record key search, match, conversion, cache, fallback, and error events.
-            - Added automatic cleanup for old log files.
-            - Improved README, troubleshooting, privacy, and third-party notices.
-            - Fixed plugin open-source URL in manifest metadata.
