@@ -2,17 +2,17 @@
 
 ## 1.0.1 - 2026-05-15
 
-- 新增运行日志功能。
-- 新增日志相关插件设置项。
-- 支持保存搜索、匹配、转换、缓存和 fallback 过程中的关键信息。
-- 支持自动清理旧日志。
-- 完善 README 中的日志说明。
-- 修正插件开源地址和项目文档。
+- Added runtime log functionality.
+- Added log-related plugin settings.
+- Supports saving key information during search, matching, transformation, caching, and fallback processes.
+- Supports automatic cleanup of old logs.
+- Improved log descriptions in the README.
+- Corrected the plugin's open-source address and project documentation.
 
 ## 1.0.0 - 2026-05-14
 
-- 初始发布。
-- 支持 AMLL TTML DB 搜索。
-- 支持 TTML 到 Salt Player SPL 样式歌词转换。
-- 支持自动匹配、缓存、失败缓存和手动匹配。
-- 支持本地/默认歌词回退。
+- Initial release.
+- Supports AMLL TTML DB search.
+- Supports TTML to Salt Player SPL style lyrics conversion.
+- Supports automatic matching, caching, failure caching, and manual matching.
+- Supports local/default lyrics rollback.
