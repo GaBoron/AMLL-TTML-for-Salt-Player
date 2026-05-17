@@ -293,7 +293,20 @@ final class AmllTtmlLoader {
             AmllLogger.info("FALLBACK", "Loaded local fallback lyric file with extension " + extension + ".");
             return Optional.of(new LoadResult(withSourceTag(lyrics, SOURCE_LOCAL), SOURCE_LOCAL));
         }
-        AmllLogger.info("FALLBACK", "No local fallback lyric file found beside the current track.");
+
+        Optional<LocalEmbeddedLyricsReader.EmbeddedLyrics> embeddedLyrics = LocalEmbeddedLyricsReader.read(audioPath);
+        if (embeddedLyrics.isPresent()) {
+            LocalEmbeddedLyricsReader.EmbeddedLyrics embedded = embeddedLyrics.get();
+            String lyrics = embedded.lyrics();
+            if (embedded.ttml()) {
+                AmllLogger.info("CONVERT", "Converting embedded local TTML lyrics from metadata field " + embedded.fieldName() + ".");
+                lyrics = TtmlToSplConverter.convert(lyrics, mediaItem);
+            }
+            AmllLogger.info("FALLBACK", "Loaded embedded local lyrics from metadata field " + embedded.fieldName() + ".");
+            return Optional.of(new LoadResult(withSourceTag(lyrics, SOURCE_LOCAL), SOURCE_LOCAL));
+        }
+
+        AmllLogger.info("FALLBACK", "No local fallback lyric file or embedded lyric metadata found for the current track.");
         return Optional.empty();
     }
 
@@ -460,7 +473,7 @@ final class AmllTtmlLoader {
         connection.setReadTimeout(10_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.1");
+        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.2");
 
         int status = connection.getResponseCode();
         AmllLogger.info("SEARCH", "Remote request completed with HTTP " + status + ".");

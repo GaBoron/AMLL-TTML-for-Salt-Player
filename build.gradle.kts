@@ -3,7 +3,7 @@
 }
 
 group = "dev.amll.saltplayer"
-version = "1.0.1"
+version = "1.0.2"
 
 layout.buildDirectory.set(file("out"))
 
@@ -26,7 +26,7 @@ tasks.named<JavaCompile>("compileJava") {
 val pluginClass = "dev.amll.saltplayer.ttml.AmllTtmlPlugin"
 val pluginId = "dev.amll.saltplayer.ttml"
 val pluginName = "AMLL TTML Loader"
-val pluginDescription = "Searches AMLL TTML DB, converts TTML word lyrics to Salt Player SPL, and falls back to local lyrics."
+val pluginDescription = "Searches AMLL TTML DB, converts TTML word lyrics to Salt Player SPL, and falls back to sidecar or embedded local lyrics."
 val pluginVersion = project.version.toString()
 val pluginProvider = "GaBoron"
 val pluginRepository = "https://github.com/GaBoron/AMLL-TTML-for-Salt-Player"

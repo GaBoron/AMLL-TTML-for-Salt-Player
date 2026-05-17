@@ -5,9 +5,13 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 
 import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -15,17 +19,14 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 final class TtmlToSplConverter {
     private TtmlToSplConverter() {
     }
 
     static String convert(String ttml, PlaybackExtensionPoint.MediaItem mediaItem) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(ttml)));
+        Document document = parseDocument(ttml);
 
         List<SplLine> output = new ArrayList<>();
         NodeList pElements = document.getElementsByTagName("p");
@@ -58,6 +59,86 @@ final class TtmlToSplConverter {
             }
         }
         return builder.toString();
+    }
+
+    private static Document parseDocument(String ttml) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        try {
+            return parseXml(factory, ttml);
+        } catch (Exception parseError) {
+            Optional<String> recovered = recoverPartialTtml(ttml);
+            if (recovered.isEmpty()) throw parseError;
+
+            AmllLogger.warn("CONVERT", "TTML XML was incomplete; recovered complete lyric lines from partial metadata.");
+            return parseXml(factory, recovered.get());
+        }
+    }
+
+    private static Document parseXml(DocumentBuilderFactory factory, String xml) throws Exception {
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        builder.setErrorHandler(new SilentErrorHandler());
+        return builder.parse(new InputSource(new StringReader(xml)));
+    }
+
+    private static Optional<String> recoverPartialTtml(String ttml) {
+        int rootStart = ttml.indexOf("<tt");
+        if (rootStart < 0) return Optional.empty();
+
+        int rootEnd = findTagEnd(ttml, rootStart);
+        if (rootEnd < 0) return Optional.empty();
+
+        String rootTag = ttml.substring(rootStart, rootEnd + 1);
+        StringBuilder body = new StringBuilder();
+        int searchFrom = rootEnd + 1;
+        int lineCount = 0;
+        while (searchFrom < ttml.length()) {
+            int start = findElementStart(ttml, "p", searchFrom);
+            if (start < 0) break;
+
+            int end = ttml.indexOf("</p>", start);
+            if (end < 0) break;
+
+            body.append(ttml, start, end + 4);
+            lineCount++;
+            searchFrom = end + 4;
+        }
+
+        if (lineCount == 0) return Optional.empty();
+        return Optional.of(rootTag + "<body><div>" + body + "</div></body></tt>");
+    }
+
+    private static int findElementStart(String xml, String elementName, int fromIndex) {
+        int index = fromIndex;
+        while (index >= 0 && index < xml.length()) {
+            index = xml.indexOf("<" + elementName, index);
+            if (index < 0) return -1;
+
+            int next = index + elementName.length() + 1;
+            if (next < xml.length()) {
+                char nextChar = xml.charAt(next);
+                if (Character.isWhitespace(nextChar) || nextChar == '>') return index;
+            }
+            index = next;
+        }
+        return -1;
+    }
+
+    private static int findTagEnd(String xml, int tagStart) {
+        char quote = 0;
+        for (int index = tagStart; index < xml.length(); index++) {
+            char current = xml.charAt(index);
+            if (quote != 0) {
+                if (current == quote) quote = 0;
+            } else if (current == '"' || current == '\'') {
+                quote = current;
+            } else if (current == '>') {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private static long disambiguateStart(long start, Map<Long, Integer> occupiedStarts, int priority) {
@@ -270,5 +351,21 @@ final class TtmlToSplConverter {
     }
 
     private record TimedPart(Long begin, Long end, String text) {
+    }
+
+    private static final class SilentErrorHandler implements ErrorHandler {
+        @Override
+        public void warning(SAXParseException exception) {
+        }
+
+        @Override
+        public void error(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
+
+        @Override
+        public void fatalError(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
     }
 }

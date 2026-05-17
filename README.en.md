@@ -13,6 +13,8 @@ This project was built with assistance from Codex.
 - Handle main lyrics, duet/agent lines, translations, romanization, and background vocals.
 - Use title-first automatic matching to reduce incorrect lyric matches.
 - Wait up to 10 seconds for online AMLL search, then fall back to local/default lyrics on failure or timeout.
+- Support sidecar `.ttml`, `.lrc`, and `.spl` lyric files, plus TTML lyrics embedded in FLAC metadata.
+- Recover complete lyric lines from truncated embedded local TTML metadata where possible.
 - Cache successful AMLL matches so the same song can load quickly next time.
 - Record failed automatic matches for seven days, then retry after the miss cache expires.
 - Show a compact source line: `来源：AMLL` or `来源：本地`.
@@ -46,7 +48,7 @@ Regular users do not need JDK 21 to install the plugin. JDK 21 is only required 
 
 ## Installation
 
-1. Download `AMLL-TTML-Loader-1.0.1.zip` from the latest GitHub Release.
+1. Download `AMLL-TTML-Loader-1.0.2.zip` from the latest GitHub Release.
 2. Copy the zip file to:
 
    ```text
@@ -67,7 +69,7 @@ Run:
 Output:
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.1.zip
+out\plugin\AMLL-TTML-Loader-1.0.2.zip
 ```
 
 ## Cache and Overrides
@@ -124,6 +126,7 @@ When reporting a bug, attach only the relevant log snippet. Do not post full log
 - The plugin requests AMLL TTML DB using the current track title, artist, and album metadata to search for matching lyrics.
 - The plugin does not upload audio files.
 - The plugin does not upload user account information.
+- Embedded FLAC lyric metadata is read locally only and is not uploaded.
 - Lyric indexes, match results, and converted lyrics are cached locally.
 - If you do not want these network requests, disable the plugin or use local/default lyrics.
 
@@ -137,6 +140,7 @@ Possible causes:
 - AMLL TTML DB does not include the track.
 - GitHub raw or related resources are not reachable.
 - The automatic match was not reliable enough, so the plugin fell back to local lyrics.
+- Embedded local lyrics are not stored as FLAC Vorbis Comment, or the lyric field is not recognizable TTML/LRC/SPL text.
 - A previous failed match is still in the seven-day miss cache.
 
 Try this:
@@ -151,7 +155,7 @@ Try this:
 ## Limitations
 
 - Salt Player's current plugin API only lets plugins provide lyrics before Salt Player loads them. The plugin cannot reliably show local lyrics first and then replace them with online lyrics during the same playback.
-- Embedded metadata lyrics loaded internally by Salt Player cannot be tagged with a source line by this plugin.
+- Embedded lyric metadata support currently reads common FLAC Vorbis Comment fields such as `LYRICS`, `SYNCEDLYRICS`, and `UNSYNCEDLYRICS`.
 - The plugin depends on AMLL TTML DB index and repository structure; upstream structure changes may temporarily break search or loading.
 - Online lyric matching depends on track metadata quality.
 - The plugin cannot guarantee accurate lyrics for every song.
