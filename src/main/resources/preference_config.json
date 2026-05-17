@@ -13,6 +13,13 @@
         },
         {
           "type": "button",
+          "title": "\u6b4c\u8bcd\u504f\u79fb\u8c03\u6574",
+          "summary": "\u8bbe\u7f6e\u5168\u5c40\u6b4c\u8bcd\u65f6\u95f4\u504f\u79fb\uff0c\u6b63\u6570\u5ef6\u540e\u663e\u793a\uff0c\u8d1f\u6570\u63d0\u524d\u663e\u793a",
+          "arrow_type": "none",
+          "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.openLyricOffsetDialog"
+        },
+        {
+          "type": "button",
           "title": "\u542f\u7528\u8fd0\u884c\u65e5\u5fd7",
           "summary": "\u9ed8\u8ba4\u5f00\u542f\uff0c\u7528\u4e8e\u6392\u67e5\u641c\u7d22\u3001\u5339\u914d\u3001\u8f6c\u6362\u3001\u7f13\u5b58\u548c\u56de\u9000\u95ee\u9898",
           "arrow_type": "none",

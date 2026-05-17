@@ -13,6 +13,10 @@ public final class AmllTtmlPlugin extends SpwPlugin {
         ManualMatcher.open();
     }
 
+    public static void openLyricOffsetDialog() {
+        LyricSettings.openOffsetDialog();
+    }
+
     public static void enableRuntimeLogs() {
         AmllLogger.setEnabled(true);
     }
