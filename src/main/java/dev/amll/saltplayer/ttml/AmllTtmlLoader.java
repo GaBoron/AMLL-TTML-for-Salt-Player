@@ -30,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 final class AmllTtmlLoader {
+    // 每次缓存结构升级时递增，用于避免旧缓存格式影响新逻辑。
     private static final String CACHE_VERSION = "v3";
     private static final Duration INDEX_CACHE_MAX_AGE = Duration.ofHours(1);
     private static final Duration ONLINE_SEARCH_TIMEOUT = Duration.ofSeconds(10);
@@ -67,12 +68,14 @@ final class AmllTtmlLoader {
 
     LoadResult load(PlaybackExtensionPoint.MediaItem mediaItem) {
         try {
+            // 先确保缓存目录存在；后续所有流程都依赖这里的读写。
             Files.createDirectories(cacheRoot);
             Files.createDirectories(lyricsCache);
             AmllLogger.verbose("CACHE", "Cache root prepared. Logs: " + AmllLogger.logRoot());
 
             String songKey = cacheKey(mediaItem);
             String override = readOverride(songKey);
+            // 手动设置“本地优先”时，直接跳过在线检索与自动匹配。
             if (OVERRIDE_LOCAL.equals(override)) {
                 AmllLogger.info("MANUAL", "Manual local/default override hit.");
                 AmllLogger.info("FALLBACK", "Falling back because the current track is manually set to local/default lyrics.");
@@ -89,6 +92,7 @@ final class AmllTtmlLoader {
             }
 
             LoadResult memoryResult = MEMORY_RESULT_CACHE.get(songKey);
+            // 内存缓存里的 AMLL 结果优先级最高，可减少磁盘与网络访问。
             if (memoryResult != null && SOURCE_AMLL.equals(memoryResult.source)) {
                 AmllLogger.info("CACHE", "Loaded AMLL lyrics from memory cache.");
                 return memoryResult;
@@ -106,6 +110,7 @@ final class AmllTtmlLoader {
             }
 
             if (hasRecentMiss(songKey)) {
+                // 最近失败过同一首歌，短期内不再重复请求网络，降低延迟和失败噪音。
                 AmllLogger.info("CACHE", "Recent miss cache hit; skipping automatic online match.");
                 return rememberLocalFallback(mediaItem, songKey, "recent miss cache");
             }
@@ -122,6 +127,7 @@ final class AmllTtmlLoader {
     }
 
     private LoadResult loadOnlineWithTimeout(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
+        // 在线检索放入独立线程池，避免阻塞播放器主流程。
         var future = ONLINE_SEARCH_EXECUTOR.submit((Callable<LoadResult>) () -> loadOnlineLyrics(mediaItem, songKey));
         try {
             LoadResult result = future.get(ONLINE_SEARCH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
@@ -155,6 +161,7 @@ final class AmllTtmlLoader {
                 + "\", album=\"" + AmllLogger.safeText(mediaItem.getAlbum()) + "\".");
         IndexEntry match = findBestMatch(mediaItem);
         if (match == null) {
+            // 先尝试使用本地索引；匹配失败时再刷新远端索引，减少不必要下载。
             AmllLogger.info("SEARCH", "No reliable match from cached index; refreshing AMLL index.");
             refreshIndex();
             match = findBestMatch(mediaItem);
