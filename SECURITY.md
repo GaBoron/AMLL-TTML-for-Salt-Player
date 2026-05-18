@@ -41,7 +41,7 @@
 - 涉及的敏感信息类型
 - 其他补充说明
 
-建议直接复制并填写 [`SECURITY_REPORT_TEMPLATE.zh-CN.md`](./SECURITY_REPORT_TEMPLATE.zh-CN.md) 中的模板内容。
+建议直接复制并填写 [`SECURITY_REPORT_TEMPLATE.md`](./SECURITY_REPORT_TEMPLATE.md) 中的模板内容。
 
 ### 附件
 
