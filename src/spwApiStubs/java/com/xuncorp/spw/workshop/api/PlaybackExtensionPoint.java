@@ -5,7 +5,15 @@ import org.pf4j.ExtensionPoint;
 import java.util.List;
 
 public interface PlaybackExtensionPoint extends ExtensionPoint {
+    default String updateLyrics(MediaItem mediaItem) {
+        return null;
+    }
+
     default String onBeforeLoadLyrics(MediaItem mediaItem) {
+        return null;
+    }
+
+    default String onAfterLoadLyrics(MediaItem mediaItem) {
         return null;
     }
 

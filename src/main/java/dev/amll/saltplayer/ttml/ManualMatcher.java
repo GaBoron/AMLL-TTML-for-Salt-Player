@@ -3,26 +3,37 @@ package dev.amll.saltplayer.ttml;
 import com.xuncorp.spw.workshop.api.PlaybackExtensionPoint;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Dialog;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Component;
+import java.awt.Window;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -30,6 +41,8 @@ import java.util.List;
  */
 final class ManualMatcher {
     private static final AmllTtmlLoader LOADER = new AmllTtmlLoader();
+    private static final Path CACHE_ROOT = defaultCacheRoot();
+    private static final Path CURRENT_MEDIA_FILE = CACHE_ROOT.resolve("current-media.tsv");
     private static volatile PlaybackExtensionPoint.MediaItem currentMediaItem;
 
     private ManualMatcher() {
@@ -37,6 +50,7 @@ final class ManualMatcher {
 
     static void setCurrentMediaItem(PlaybackExtensionPoint.MediaItem mediaItem) {
         currentMediaItem = mediaItem;
+        saveCurrentMediaItem(mediaItem);
     }
 
     static void open() {
@@ -45,58 +59,79 @@ final class ManualMatcher {
     }
 
     private static void showDialog() {
-        installSystemLookAndFeel();
-        PlaybackExtensionPoint.MediaItem mediaItem = currentMediaItem;
+        closeExistingDialogs();
+        PlaybackExtensionPoint.MediaItem mediaItem = currentMediaItem != null ? currentMediaItem : loadCurrentMediaItem();
         if (mediaItem == null) {
             AmllLogger.warn("MANUAL", "Manual matcher opened without a current media item.");
-            JOptionPane.showMessageDialog(null, "请先播放一首歌。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
+            Win11Swing.showMessage(null, "AMLL 手动匹配", "还没有收到播放器的当前曲目。请切换或重新播放当前歌曲后再打开手动匹配。", false);
             return;
         }
+        currentMediaItem = mediaItem;
         AmllLogger.info("MANUAL", "Manual matcher opened.");
 
-        JDialog dialog = new JDialog((JFrame) null, "AMLL 手动匹配", false);
-        JTextField titleField = new JTextField(mediaItem.getTitle(), 28);
-        JTextField artistField = new JTextField(mediaItem.getArtist(), 28);
-        JTextField albumField = new JTextField(mediaItem.getAlbum(), 28);
+        JDialog dialog = Win11Swing.createDialog("AMLL 手动匹配", 820, 590);
+        JTextField titleField = Win11Swing.textField(mediaItem.getTitle(), 28);
+        JTextField artistField = Win11Swing.textField(mediaItem.getArtist(), 28);
+        JTextField albumField = Win11Swing.textField(mediaItem.getAlbum(), 28);
 
         DefaultListModel<AmllTtmlLoader.SearchResult> model = new DefaultListModel<>();
         JList<AmllTtmlLoader.SearchResult> list = new JList<>(model);
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setVisibleRowCount(8);
+        list.setFont(Win11Swing.BODY_FONT);
+        list.setFixedCellHeight(56);
+        list.setBackground(Win11Swing.FIELD);
+        list.setForeground(Win11Swing.TEXT);
+        list.setCellRenderer(new SearchResultRenderer());
 
-        JTextArea preview = new JTextArea(7, 42);
-        preview.setEditable(false);
-        preview.setLineWrap(true);
-        preview.setWrapStyleWord(true);
+        JTextArea preview = Win11Swing.textArea(10, 36);
         preview.setText("点击搜索后选择一个结果查看预览。");
 
-        JButton searchButton = new JButton("搜索");
-        JButton useAmllButton = new JButton("使用选中 AMLL");
-        JButton useLocalButton = new JButton("使用本地/元数据");
-        JButton closeButton = new JButton("关闭");
+        JButton searchButton = Win11Swing.button("搜索", true);
+        JButton useAmllButton = Win11Swing.button("使用选中 AMLL", true);
+        JButton useLocalButton = Win11Swing.button("使用本地/元数据", false);
+        JButton closeButton = Win11Swing.button("关闭", false);
 
-        JPanel fields = new JPanel(new GridBagLayout());
-        fields.setBorder(BorderFactory.createEmptyBorder(10, 10, 6, 10));
+        JPanel fields = Win11Swing.card(new GridBagLayout());
         addField(fields, 0, "歌名", titleField);
         addField(fields, 1, "歌手", artistField);
         addField(fields, 2, "专辑", albumField);
 
-        JPanel buttons = new JPanel();
-        buttons.add(searchButton);
-        buttons.add(useAmllButton);
-        buttons.add(useLocalButton);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setOpaque(false);
         buttons.add(closeButton);
+        buttons.add(Box.createHorizontalStrut(8));
+        buttons.add(searchButton);
+        buttons.add(useLocalButton);
+        buttons.add(useAmllButton);
 
-        JPanel center = new JPanel(new BorderLayout(8, 8));
-        center.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
-        center.add(new JScrollPane(list), BorderLayout.CENTER);
-        center.add(new JScrollPane(preview), BorderLayout.SOUTH);
+        JPanel searchPane = Win11Swing.card(new BorderLayout(0, 10));
+        searchPane.add(sectionHeader("搜索结果", "选择一个候选项查看前几句歌词。"), BorderLayout.NORTH);
+        searchPane.add(Win11Swing.scroll(list), BorderLayout.CENTER);
 
-        dialog.setLayout(new BorderLayout());
-        dialog.add(fields, BorderLayout.NORTH);
-        dialog.add(center, BorderLayout.CENTER);
-        dialog.add(buttons, BorderLayout.SOUTH);
-        dialog.setMinimumSize(new Dimension(720, 520));
+        JPanel previewPane = Win11Swing.card(new BorderLayout(0, 10));
+        previewPane.add(sectionHeader("歌词预览", "保存后重新播放当前歌曲生效。"), BorderLayout.NORTH);
+        previewPane.add(Win11Swing.scroll(preview), BorderLayout.CENTER);
+
+        JPanel results = new JPanel(new GridLayout(1, 2, 12, 0));
+        results.setOpaque(false);
+        results.add(searchPane);
+        results.add(previewPane);
+
+        JPanel content = new JPanel(new BorderLayout(0, 12));
+        content.setOpaque(false);
+        content.add(fields, BorderLayout.NORTH);
+        content.add(results, BorderLayout.CENTER);
+
+        dialog.setContentPane(Win11Swing.dialogRoot(
+                dialog,
+                "AMLL 手动匹配",
+                "编辑当前曲目信息，选择在线 AMLL 歌词或固定使用本地歌词。",
+                content,
+                buttons
+        ));
+        dialog.pack();
+        dialog.setSize(new Dimension(820, 590));
         dialog.setLocationRelativeTo(null);
 
         searchButton.addActionListener(event -> search(titleField, artistField, albumField, model, preview, searchButton));
@@ -109,12 +144,12 @@ final class ManualMatcher {
         useAmllButton.addActionListener(event -> {
             AmllTtmlLoader.SearchResult result = list.getSelectedValue();
             if (result == null) {
-                JOptionPane.showMessageDialog(dialog, "请先选择一个 AMLL 结果。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
+                Win11Swing.showMessage(dialog, "AMLL 手动匹配", "请先选择一个 AMLL 结果。", false);
                 return;
             }
             try {
                 LOADER.saveOverride(AmllTtmlLoader.cacheKey(mediaItem), result.rawLyricFile());
-                JOptionPane.showMessageDialog(dialog, "已保存：来源 AMLL。重新播放当前歌曲后生效。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
+                Win11Swing.showMessage(dialog, "AMLL 手动匹配", "已保存：来源 AMLL。重新播放当前歌曲后生效。", false);
                 dialog.dispose();
             } catch (Exception error) {
                 AmllLogger.error("MANUAL", "Failed to save manual AMLL override.", error);
@@ -124,7 +159,7 @@ final class ManualMatcher {
         useLocalButton.addActionListener(event -> {
             try {
                 LOADER.saveLocalOverride(AmllTtmlLoader.cacheKey(mediaItem));
-                JOptionPane.showMessageDialog(dialog, "已保存：使用本地/元数据歌词。重新播放当前歌曲后生效。", "AMLL 手动匹配", JOptionPane.INFORMATION_MESSAGE);
+                Win11Swing.showMessage(dialog, "AMLL 手动匹配", "已保存：使用本地/元数据歌词。重新播放当前歌曲后生效。", false);
                 dialog.dispose();
             } catch (Exception error) {
                 AmllLogger.error("MANUAL", "Failed to save manual local/default override.", error);
@@ -142,16 +177,31 @@ final class ManualMatcher {
         labelConstraints.gridx = 0;
         labelConstraints.gridy = row;
         labelConstraints.anchor = GridBagConstraints.WEST;
-        labelConstraints.insets = new Insets(4, 0, 4, 8);
-        panel.add(new JLabel(label), labelConstraints);
+        labelConstraints.insets = new Insets(5, 0, 5, 10);
+        JLabel fieldLabel = Win11Swing.label(label);
+        fieldLabel.setPreferredSize(new Dimension(42, 26));
+        panel.add(fieldLabel, labelConstraints);
 
         GridBagConstraints fieldConstraints = new GridBagConstraints();
         fieldConstraints.gridx = 1;
         fieldConstraints.gridy = row;
         fieldConstraints.weightx = 1;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.insets = new Insets(4, 0, 4, 0);
+        fieldConstraints.insets = new Insets(5, 0, 5, 0);
         panel.add(field, fieldConstraints);
+    }
+
+    private static JComponent sectionHeader(String title, String summary) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JLabel titleLabel = Win11Swing.label(title);
+        titleLabel.setFont(Win11Swing.BODY_FONT.deriveFont(Font.BOLD));
+        JLabel summaryLabel = Win11Swing.mutedLabel(summary);
+        panel.add(titleLabel);
+        panel.add(Box.createVerticalStrut(3));
+        panel.add(summaryLabel);
+        return panel;
     }
 
     private static void search(
@@ -210,13 +260,104 @@ final class ManualMatcher {
     }
 
     private static void showError(JDialog parent, Exception error) {
-        JOptionPane.showMessageDialog(parent, error.getMessage(), "AMLL 手动匹配", JOptionPane.ERROR_MESSAGE);
+        Win11Swing.showMessage(parent, "AMLL 手动匹配", error.getMessage(), true);
     }
 
-    private static void installSystemLookAndFeel() {
+    private static void closeExistingDialogs() {
+        for (Window window : Window.getWindows()) {
+            if (window instanceof Dialog dialog && "AMLL 手动匹配".equals(dialog.getTitle())) {
+                // 关闭旧版本或重复打开的手动匹配窗口，避免新旧 Swing 界面叠在一起。
+                dialog.dispose();
+            }
+        }
+    }
+
+    private static void saveCurrentMediaItem(PlaybackExtensionPoint.MediaItem mediaItem) {
+        if (mediaItem == null) return;
         try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
+            Files.createDirectories(CACHE_ROOT);
+            // 使用 Base64 存储，避免标题或路径中的制表符、换行破坏快照格式。
+            String line = String.join("\t",
+                    encode(mediaItem.getTitle()),
+                    encode(mediaItem.getArtist()),
+                    encode(mediaItem.getAlbum()),
+                    encode(mediaItem.getAlbumArtist()),
+                    encode(mediaItem.getPath())
+            );
+            Files.writeString(CURRENT_MEDIA_FILE, line, StandardCharsets.UTF_8);
+        } catch (Exception error) {
+            AmllLogger.warn("MANUAL", "Failed to persist current media snapshot.");
+        }
+    }
+
+    private static PlaybackExtensionPoint.MediaItem loadCurrentMediaItem() {
+        try {
+            if (!Files.isRegularFile(CURRENT_MEDIA_FILE)) return null;
+            String[] fields = Files.readString(CURRENT_MEDIA_FILE, StandardCharsets.UTF_8).trim().split("\t", -1);
+            if (fields.length != 5) return null;
+            PlaybackExtensionPoint.MediaItem mediaItem = new PlaybackExtensionPoint.MediaItem(
+                    decode(fields[0]),
+                    decode(fields[1]),
+                    decode(fields[2]),
+                    decode(fields[3]),
+                    decode(fields[4])
+            );
+            return isUsable(mediaItem) ? mediaItem : null;
+        } catch (Exception error) {
+            AmllLogger.warn("MANUAL", "Failed to read current media snapshot.");
+            return null;
+        }
+    }
+
+    private static boolean isUsable(PlaybackExtensionPoint.MediaItem mediaItem) {
+        return mediaItem != null
+                && (!blank(mediaItem.getTitle()) || !blank(mediaItem.getArtist()) || !blank(mediaItem.getPath()));
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private static String encode(String value) {
+        return Base64.getEncoder().encodeToString((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String decode(String value) {
+        return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+    }
+
+    private static Path defaultCacheRoot() {
+        String appData = System.getenv("APPDATA");
+        Path base = appData == null || appData.isBlank() ? Path.of(System.getProperty("user.home")) : Path.of(appData);
+        return base.resolve("Salt Player for Windows").resolve("workshop").resolve("amll-ttml-loader-cache");
+    }
+
+    private static final class SearchResultRenderer extends DefaultListCellRenderer {
+        @Override
+        public Component getListCellRendererComponent(
+                JList<?> list,
+                Object value,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus
+        ) {
+            JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            label.setOpaque(true);
+            label.setFont(Win11Swing.BODY_FONT);
+            label.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+            label.setForeground(isSelected ? Color.WHITE : Win11Swing.TEXT);
+            label.setBackground(isSelected ? Win11Swing.ACCENT : Win11Swing.FIELD);
+            if (value instanceof AmllTtmlLoader.SearchResult result) {
+                label.setText("<html><b>" + escape(result.title()) + "</b> - " + escape(result.artist())
+                        + "<br><span style='color:" + (isSelected ? "#e8f2ff" : "#666666") + "'>"
+                        + escape(result.album()) + "   #" + result.score() + "</span></html>");
+            }
+            return label;
+        }
+
+        private static String escape(String value) {
+            if (value == null || value.isBlank()) return "";
+            return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
         }
     }
 }

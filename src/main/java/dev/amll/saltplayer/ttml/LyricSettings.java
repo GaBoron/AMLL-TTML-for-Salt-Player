@@ -1,6 +1,20 @@
 package dev.amll.saltplayer.ttml;
 
-import javax.swing.JOptionPane;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.event.ChangeListener;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,33 +45,136 @@ final class LyricSettings {
     }
 
     static void openOffsetDialog() {
-        String current = Integer.toString(offsetMillis());
-        String input = JOptionPane.showInputDialog(
-                null,
-                "输入歌词偏移毫秒数：正数延后显示，负数提前显示。",
-                current
-        );
-        if (input == null) return;
+        javax.swing.SwingUtilities.invokeLater(LyricSettings::showOffsetDialog);
+    }
 
-        try {
-            int offset = clamp(Integer.parseInt(input.trim()));
-            Files.createDirectories(CACHE_ROOT);
-            if (offset == 0) {
-                Files.deleteIfExists(OFFSET_FILE);
-            } else {
-                Files.writeString(OFFSET_FILE, Integer.toString(offset), StandardCharsets.UTF_8);
+    private static void showOffsetDialog() {
+        JDialog dialog = Win11Swing.createDialog("歌词偏移调整", 520, 360);
+        int current = offsetMillis();
+
+        JLabel valueLabel = Win11Swing.label(formatOffset(current));
+        valueLabel.setFont(Win11Swing.TITLE_FONT);
+
+        SpinnerNumberModel numberModel = new SpinnerNumberModel(current, MIN_OFFSET_MILLIS, MAX_OFFSET_MILLIS, 100);
+        JSpinner spinner = new JSpinner(numberModel);
+        spinner.setFont(Win11Swing.BODY_FONT);
+        spinner.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+
+        JSlider slider = new JSlider(-5000, 5000, clampForSlider(current));
+        slider.setOpaque(false);
+        slider.setMajorTickSpacing(1000);
+        slider.setMinorTickSpacing(250);
+        slider.setPaintTicks(true);
+
+        ChangeListener spinnerListener = event -> {
+            int value = clamp((Integer) spinner.getValue());
+            valueLabel.setText(formatOffset(value));
+            if (value >= slider.getMinimum() && value <= slider.getMaximum() && slider.getValue() != value) {
+                slider.setValue(value);
             }
-            AmllLogger.info("CONFIG", "Lyric offset set to " + offset + " ms.");
-            JOptionPane.showMessageDialog(null, "歌词偏移已设置为 " + offset + " ms。", "AMLL TTML Loader", JOptionPane.INFORMATION_MESSAGE);
-        } catch (NumberFormatException error) {
-            JOptionPane.showMessageDialog(null, "请输入整数毫秒数，例如 500 或 -300。", "AMLL TTML Loader", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception error) {
-            JOptionPane.showMessageDialog(null, "保存歌词偏移失败：" + error.getMessage(), "AMLL TTML Loader", JOptionPane.ERROR_MESSAGE);
-        }
+        };
+        spinner.addChangeListener(spinnerListener);
+        slider.addChangeListener(event -> {
+            int value = slider.getValue();
+            if (!spinner.getValue().equals(value)) {
+                spinner.setValue(value);
+            }
+        });
+
+        JPanel valuePanel = Win11Swing.card(new BorderLayout(0, 12));
+        JLabel title = Win11Swing.label("全局歌词时间偏移");
+        title.setFont(Win11Swing.BODY_FONT.deriveFont(Font.BOLD));
+        valuePanel.add(title, BorderLayout.NORTH);
+        valuePanel.add(valueLabel, BorderLayout.CENTER);
+        valuePanel.add(Win11Swing.mutedLabel("正数延后显示，负数提前显示。单位：毫秒。"), BorderLayout.SOUTH);
+
+        JPanel controls = Win11Swing.card(new BorderLayout(0, 12));
+        JPanel numberRow = new JPanel(new BorderLayout(10, 0));
+        numberRow.setOpaque(false);
+        numberRow.add(Win11Swing.label("精确数值"), BorderLayout.WEST);
+        numberRow.add(spinner, BorderLayout.CENTER);
+        controls.add(numberRow, BorderLayout.NORTH);
+        controls.add(slider, BorderLayout.CENTER);
+
+        JPanel quick = new JPanel(new GridLayout(1, 5, 8, 0));
+        quick.setOpaque(false);
+        addQuickButton(quick, spinner, -1000);
+        addQuickButton(quick, spinner, -500);
+        addQuickButton(quick, spinner, 0);
+        addQuickButton(quick, spinner, 500);
+        addQuickButton(quick, spinner, 1000);
+        controls.add(quick, BorderLayout.SOUTH);
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.add(valuePanel);
+        content.add(Box.createVerticalStrut(12));
+        content.add(controls);
+
+        JButton cancelButton = Win11Swing.button("取消", false);
+        JButton resetButton = Win11Swing.button("重置为 0", false);
+        JButton saveButton = Win11Swing.button("保存", true);
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        footer.setOpaque(false);
+        footer.add(cancelButton);
+        footer.add(resetButton);
+        footer.add(saveButton);
+
+        cancelButton.addActionListener(event -> dialog.dispose());
+        resetButton.addActionListener(event -> spinner.setValue(0));
+        saveButton.addActionListener(event -> {
+            try {
+                int offset = clamp((Integer) spinner.getValue());
+                saveOffset(offset);
+                Win11Swing.showMessage(dialog, "AMLL TTML Loader", "歌词偏移已设置为 " + offset + " ms。", false);
+                dialog.dispose();
+            } catch (Exception error) {
+                Win11Swing.showMessage(dialog, "AMLL TTML Loader", "保存歌词偏移失败：" + error.getMessage(), true);
+            }
+        });
+
+        dialog.setContentPane(Win11Swing.dialogRoot(
+                dialog,
+                "歌词偏移调整",
+                "用于修正歌词与播放进度不同步的问题。",
+                content,
+                footer
+        ));
+        dialog.pack();
+        dialog.setSize(520, 360);
+        dialog.setLocationRelativeTo(null);
+        dialog.setVisible(true);
     }
 
     private static int clamp(int value) {
         return Math.max(MIN_OFFSET_MILLIS, Math.min(MAX_OFFSET_MILLIS, value));
+    }
+
+    private static int clampForSlider(int value) {
+        return Math.max(-5000, Math.min(5000, value));
+    }
+
+    private static void addQuickButton(JPanel panel, JSpinner spinner, int value) {
+        JButton button = Win11Swing.button(value > 0 ? "+" + value : Integer.toString(value), false);
+        button.addActionListener(event -> spinner.setValue(value));
+        panel.add(button);
+    }
+
+    private static void saveOffset(int offset) throws Exception {
+        Files.createDirectories(CACHE_ROOT);
+        if (offset == 0) {
+            Files.deleteIfExists(OFFSET_FILE);
+        } else {
+            Files.writeString(OFFSET_FILE, Integer.toString(offset), StandardCharsets.UTF_8);
+        }
+        AmllLogger.info("CONFIG", "Lyric offset set to " + offset + " ms.");
+    }
+
+    private static String formatOffset(int offset) {
+        if (offset == 0) return "0 ms";
+        return (offset > 0 ? "+" : "") + offset + " ms";
     }
 
     private static Path defaultCacheRoot() {

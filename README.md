@@ -29,6 +29,10 @@
 
 ![自动加载 AMLL 歌词](docs/images/lyrics-page.png)
 
+### 歌词偏移调整
+
+![歌词偏移调整](docs/images/lyric-offset-dialog.png)
+
 ### 手动匹配当前歌曲
 
 ![手动匹配当前歌曲](docs/images/manual-match-dialog.png)
@@ -50,7 +54,7 @@
 
 ## 安装方法
 
-1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.3.zip`。
+1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.4.zip`。
 2. 将 zip 文件复制到：
 
    ```text
@@ -71,7 +75,7 @@
 输出文件：
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.3.zip
+out\plugin\AMLL-TTML-Loader-1.0.4.zip
 ```
 
 ## 缓存与手动覆盖
@@ -169,6 +173,7 @@ amll-ttml-loader-2026-05-15.log
 - [AMLL TTML DB](https://github.com/amll-dev/amll-ttml-db)：歌词数据来源，使用 CC0-1.0
 - Salt Player for Windows：插件运行平台
 - [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api)：Salt Player workshop API 参考
+- [Noto Sans CJK](https://github.com/notofonts/noto-cjk)：弹窗界面内置字体，使用 SIL Open Font License 1.1
 - PF4J：插件机制相关
 - Gradle：构建工具
 

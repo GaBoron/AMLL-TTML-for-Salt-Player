@@ -29,6 +29,10 @@ This project was built with assistance from Codex.
 
 ![Automatically loaded AMLL lyrics](docs/images/lyrics-page.png)
 
+### Lyric Offset Dialog
+
+![Lyric offset dialog](docs/images/lyric-offset-dialog.png)
+
 ### Manual Matching Dialog
 
 ![Manual matching dialog](docs/images/manual-match-dialog.png)
@@ -50,7 +54,7 @@ Regular users do not need JDK 21 to install the plugin. JDK 21 is only required 
 
 ## Installation
 
-1. Download `AMLL-TTML-Loader-1.0.3.zip` from the latest GitHub Release.
+1. Download `AMLL-TTML-Loader-1.0.4.zip` from the latest GitHub Release.
 2. Copy the zip file to:
 
    ```text
@@ -71,7 +75,7 @@ Run:
 Output:
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.3.zip
+out\plugin\AMLL-TTML-Loader-1.0.4.zip
 ```
 
 ## Cache and Overrides
@@ -169,6 +173,7 @@ Try this:
 - [AMLL TTML DB](https://github.com/amll-dev/amll-ttml-db): lyric data source, licensed under CC0-1.0
 - Salt Player for Windows: plugin runtime platform
 - [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api): Salt Player workshop API reference
+- [Noto Sans CJK](https://github.com/notofonts/noto-cjk): bundled dialog UI font, licensed under SIL Open Font License 1.1
 - PF4J: plugin mechanism
 - Gradle: build tool
 

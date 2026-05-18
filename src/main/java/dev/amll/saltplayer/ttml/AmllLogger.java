@@ -2,6 +2,7 @@ package dev.amll.saltplayer.ttml;
 
 import javax.swing.JOptionPane;
 import java.awt.Desktop;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -54,14 +55,8 @@ final class AmllLogger {
 
     static void setEnabled(boolean enabled) {
         try {
-            Files.createDirectories(CACHE_ROOT);
-            if (enabled) {
-                Files.deleteIfExists(DISABLED_FLAG);
-                info("CONFIG", "Runtime logging enabled.");
-            } else {
-                info("CONFIG", "Runtime logging disabled.");
-                Files.writeString(DISABLED_FLAG, Instant.now().toString(), StandardCharsets.UTF_8);
-            }
+            applyEnabled(enabled);
+            info("CONFIG", enabled ? "Runtime logging enabled." : "Runtime logging disabled.");
             showMessage(enabled ? "运行日志已启用。" : "运行日志已关闭。");
         } catch (Exception error) {
             showError("更新日志设置失败：" + safeMessage(error));
@@ -70,17 +65,21 @@ final class AmllLogger {
 
     static void setVerbose(boolean verbose) {
         try {
-            Files.createDirectories(CACHE_ROOT);
-            if (verbose) {
-                Files.writeString(VERBOSE_FLAG, Instant.now().toString(), StandardCharsets.UTF_8);
-                info("CONFIG", "Verbose logging enabled.");
-            } else {
-                Files.deleteIfExists(VERBOSE_FLAG);
-                info("CONFIG", "Normal logging enabled.");
-            }
+            applyVerbose(verbose);
+            info("CONFIG", verbose ? "Verbose logging enabled." : "Normal logging enabled.");
             showMessage(verbose ? "日志详细程度已设为详细。" : "日志详细程度已设为普通。");
         } catch (Exception error) {
             showError("更新日志详细程度失败：" + safeMessage(error));
+        }
+    }
+
+    static void applyPreferences(boolean enabled, boolean verbose) {
+        try {
+            applyEnabled(enabled);
+            applyVerbose(verbose);
+            info("CONFIG", "Runtime logging preferences synced.");
+        } catch (Exception error) {
+            showError("同步日志设置失败：" + safeMessage(error));
         }
     }
 
@@ -187,6 +186,24 @@ final class AmllLogger {
 
     private static boolean isVerbose() {
         return Files.isRegularFile(VERBOSE_FLAG);
+    }
+
+    private static void applyEnabled(boolean enabled) throws IOException {
+        Files.createDirectories(CACHE_ROOT);
+        if (enabled) {
+            Files.deleteIfExists(DISABLED_FLAG);
+        } else {
+            Files.writeString(DISABLED_FLAG, Instant.now().toString(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static void applyVerbose(boolean verbose) throws IOException {
+        Files.createDirectories(CACHE_ROOT);
+        if (verbose) {
+            Files.writeString(VERBOSE_FLAG, Instant.now().toString(), StandardCharsets.UTF_8);
+        } else {
+            Files.deleteIfExists(VERBOSE_FLAG);
+        }
     }
 
     private static String stackTrace(Throwable error) {

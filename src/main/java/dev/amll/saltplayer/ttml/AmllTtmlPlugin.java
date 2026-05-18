@@ -12,6 +12,13 @@ public final class AmllTtmlPlugin extends SpwPlugin {
         AmllLogger.info("INIT", "Plugin initialized.");
     }
 
+    @Override
+    public void start() {
+        super.start();
+        PluginPreferences.install();
+        AmllLogger.info("INIT", "Plugin preferences initialized.");
+    }
+
     public static void openManualMatcher() {
         ManualMatcher.open();
     }

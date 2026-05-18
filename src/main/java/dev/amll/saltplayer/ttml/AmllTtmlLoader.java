@@ -491,7 +491,7 @@ final class AmllTtmlLoader {
         connection.setReadTimeout(10_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.3");
+        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.4");
 
         int status = connection.getResponseCode();
         AmllLogger.info("SEARCH", "Remote request completed with HTTP " + status + ".");
