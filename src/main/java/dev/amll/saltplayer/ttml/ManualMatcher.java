@@ -37,6 +37,7 @@ final class ManualMatcher {
     }
 
     static void open() {
+        // 所有 UI 操作都切到 EDT，避免 Swing 线程安全问题。
         SwingUtilities.invokeLater(ManualMatcher::showDialog);
     }
 
@@ -98,6 +99,7 @@ final class ManualMatcher {
         searchButton.addActionListener(event -> search(titleField, artistField, albumField, model, preview, searchButton));
         list.addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting()) {
+                // 选择变化后异步加载预览，防止界面卡顿。
                 loadPreview(mediaItem, list.getSelectedValue(), preview);
             }
         });
@@ -164,6 +166,7 @@ final class ManualMatcher {
         new SwingWorker<List<AmllTtmlLoader.SearchResult>, Void>() {
             @Override
             protected List<AmllTtmlLoader.SearchResult> doInBackground() throws Exception {
+                // 搜索走后台线程，避免网络/磁盘 IO 阻塞对话框。
                 return LOADER.search(titleField.getText(), artistField.getText(), albumField.getText(), 30);
             }
 

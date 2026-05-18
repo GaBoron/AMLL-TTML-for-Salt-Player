@@ -30,6 +30,7 @@ final class TtmlToSplConverter {
 
         List<SplLine> output = new ArrayList<>();
         NodeList pElements = document.getElementsByTagName("p");
+        // 逐行读取 TTML 中的 <p> 作为 SPL 主体时间轴。
         for (int i = 0; i < pElements.getLength(); i++) {
             if (!(pElements.item(i) instanceof Element p)) continue;
             Long begin = attrMillis(p, "begin");
@@ -40,8 +41,10 @@ final class TtmlToSplConverter {
             String translation = firstRoleText(p, "x-translation");
             String roman = firstRoleText(p, "x-roman");
             if (!main.text().isBlank()) {
+                // 主歌词行：翻译优先，其次使用音译作为副文本。
                 output.add(new SplLine(begin, end, main.toSplText(begin, end), translation != null ? translation : roman, 0));
             }
+            // 背景行（x-bg）单独提取并赋予更高优先级，便于同时间戳并存。
             output.addAll(collectBackgroundLines(p));
         }
 
@@ -52,6 +55,7 @@ final class TtmlToSplConverter {
 
         Map<Long, Integer> occupiedStarts = new HashMap<>();
         for (SplLine line : output) {
+            // 同一毫秒开始的多行需要轻微错位，避免被播放器视为重复时间戳覆盖。
             long start = disambiguateStart(line.start, occupiedStarts, line.priority);
             builder.append(formatLine(start, line.text, line.end)).append('\n');
             if (line.subText != null && !line.subText.isBlank()) {
@@ -84,6 +88,7 @@ final class TtmlToSplConverter {
     }
 
     private static Optional<String> recoverPartialTtml(String ttml) {
+        // 针对部分不完整 TTML：尽可能拼回可解析的最小文档，提升容错率。
         int rootStart = ttml.indexOf("<tt");
         if (rootStart < 0) return Optional.empty();
 
