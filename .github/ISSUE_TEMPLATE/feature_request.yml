@@ -9,14 +9,14 @@ body:
     id: security-check
     attributes:
       label: 提交前安全确认
-      description: 如果这是安全漏洞、隐私泄露、账号信息、完整日志、截图隐私内容或其他敏感信息相关问题，请不要提交公开议题，请先阅读 SECURITY.md。
+      description: 如果这是安全漏洞、隐私泄露、账号信息、完整日志、截图隐私内容或其他敏感信息相关问题，请不要提交公开 issue，请先阅读 SECURITY.md。
       options:
         - label: 我确认这不是安全性问题，也不包含敏感信息；如果是安全性问题，我会停止提交并按照 SECURITY.md 报告。
           required: true
   - type: markdown
     attributes:
       value: |
-        安全性问题请不要通过公开议题提交。请阅读 [SECURITY.md](https://github.com/GaBoron/AMLL-TTML-for-Salt-Player/security/policy) 并按安全报告流程联系维护者。
+        安全性问题请不要通过公开 issue 提交。请阅读 [SECURITY.md](https://github.com/GaBoron/AMLL-TTML-for-Salt-Player/security/policy) 并按安全报告流程联系维护者。
   - type: textarea
     id: feature
     attributes:
