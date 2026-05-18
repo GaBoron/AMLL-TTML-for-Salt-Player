@@ -3,6 +3,9 @@ package dev.amll.saltplayer.ttml;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * 返回给播放器前的歌词清理：去掉来源行、过滤 LRC 元数据并应用时间偏移。
+ */
 final class LyricPostProcessor {
     private static final Pattern SOURCE_LINE = Pattern.compile("^\\[[0-9]{1,3}:[0-9]{2}(?:\\.[0-9]{1,3})?]\\u6765\\u6e90\\uff1a[^\\r\\n]*(?:\\R|$)");
     private static final Pattern METADATA_LINE = Pattern.compile("^\\s*\\[[A-Za-z][A-Za-z0-9_ -]*:[^]]*]\\s*$");
@@ -30,6 +33,7 @@ final class LyricPostProcessor {
     }
 
     private static String shiftTimestamps(String lyrics, int offsetMillis) {
+        // 同时处理行首时间戳和逐词内联时间戳。
         Matcher matcher = TIMESTAMP.matcher(lyrics);
         StringBuilder shifted = new StringBuilder();
         while (matcher.find()) {

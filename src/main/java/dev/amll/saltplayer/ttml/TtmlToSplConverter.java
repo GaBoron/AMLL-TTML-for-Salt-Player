@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 将 AMLL TTML 歌词转换为 Salt Player 可读取的 SPL 风格文本。
+ */
 final class TtmlToSplConverter {
     private TtmlToSplConverter() {
     }
@@ -30,7 +33,7 @@ final class TtmlToSplConverter {
 
         List<SplLine> output = new ArrayList<>();
         NodeList pElements = document.getElementsByTagName("p");
-        // 逐行读取 TTML 中的 <p> 作为 SPL 主体时间轴。
+        // 每个 <p> 对应一行主歌词，同时可能包含翻译、音译和背景歌词。
         for (int i = 0; i < pElements.getLength(); i++) {
             if (!(pElements.item(i) instanceof Element p)) continue;
             Long begin = attrMillis(p, "begin");
@@ -41,10 +44,10 @@ final class TtmlToSplConverter {
             String translation = firstRoleText(p, "x-translation");
             String roman = firstRoleText(p, "x-roman");
             if (!main.text().isBlank()) {
-                // 主歌词行：翻译优先，其次使用音译作为副文本。
+                // 副文本优先使用翻译；没有翻译时再使用音译。
                 output.add(new SplLine(begin, end, main.toSplText(begin, end), translation != null ? translation : roman, 0));
             }
-            // 背景行（x-bg）单独提取并赋予更高优先级，便于同时间戳并存。
+            // 背景歌词单独输出，避免和主歌词混成同一行。
             output.addAll(collectBackgroundLines(p));
         }
 
@@ -55,7 +58,7 @@ final class TtmlToSplConverter {
 
         Map<Long, Integer> occupiedStarts = new HashMap<>();
         for (SplLine line : output) {
-            // 同一毫秒开始的多行需要轻微错位，避免被播放器视为重复时间戳覆盖。
+            // 同一毫秒内的多行轻微错开，避免播放器把它们当成重复时间戳覆盖。
             long start = disambiguateStart(line.start, occupiedStarts, line.priority);
             builder.append(formatLine(start, line.text, line.end)).append('\n');
             if (line.subText != null && !line.subText.isBlank()) {
@@ -68,6 +71,7 @@ final class TtmlToSplConverter {
     private static Document parseDocument(String ttml) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
+        // 禁止 DTD，避免解析外部实体或不必要的 XML 处理风险。
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         try {
@@ -88,7 +92,7 @@ final class TtmlToSplConverter {
     }
 
     private static Optional<String> recoverPartialTtml(String ttml) {
-        // 针对部分不完整 TTML：尽可能拼回可解析的最小文档，提升容错率。
+        // FLAC 元数据可能截断 TTML，尽量保留已完整闭合的 <p> 行。
         int rootStart = ttml.indexOf("<tt");
         if (rootStart < 0) return Optional.empty();
 
@@ -167,6 +171,7 @@ final class TtmlToSplConverter {
     }
 
     private static void collectMainParts(Node node, List<TimedPart> parts) {
+        // 跳过翻译、音译和背景角色，只收集主歌词及其逐词时间。
         Node child = node.getFirstChild();
         while (child != null) {
             if (child.getNodeType() == Node.TEXT_NODE) {
@@ -224,6 +229,7 @@ final class TtmlToSplConverter {
     }
 
     private static List<SplLine> collectBackgroundLines(Element element) {
+        // 背景歌词常用 x-bg 标记，起止时间可继承父级 <p>。
         List<SplLine> lines = new ArrayList<>();
         Node child = element.getFirstChild();
         while (child != null) {

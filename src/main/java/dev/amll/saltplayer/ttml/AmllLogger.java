@@ -18,6 +18,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * 统一管理插件运行日志、日志设置入口和日志目录清理。
+ */
 final class AmllLogger {
     private static final int MAX_LOG_FILES = 10;
     private static final int RETAIN_DAYS = 7;
@@ -142,6 +145,7 @@ final class AmllLogger {
     }
 
     private static void cleanupOldLogs() {
+        // 每个进程只清理一次，避免频繁写日志时反复扫描日志目录。
         if (!CLEANUP_DONE.compareAndSet(false, true)) return;
         try {
             Files.createDirectories(LOG_ROOT);
@@ -193,6 +197,7 @@ final class AmllLogger {
 
     private static String sanitize(String value) {
         if (value == null) return "";
+        // 日志可能随 issue 一起公开，先把常见本机路径替换成占位符。
         String sanitized = value;
         sanitized = replaceKnownPath(sanitized, System.getenv("APPDATA"), "%APPDATA%");
         sanitized = replaceKnownPath(sanitized, System.getenv("USERPROFILE"), "%USERPROFILE%");

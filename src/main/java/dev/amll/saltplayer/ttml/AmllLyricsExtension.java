@@ -3,6 +3,9 @@ package dev.amll.saltplayer.ttml;
 import com.xuncorp.spw.workshop.api.PlaybackExtensionPoint;
 import org.pf4j.Extension;
 
+/**
+ * Salt Player 歌词加载扩展入口，负责把播放器回调转交给 AMLL 加载器。
+ */
 @Extension
 public final class AmllLyricsExtension implements PlaybackExtensionPoint {
     private final AmllTtmlLoader loader = new AmllTtmlLoader();

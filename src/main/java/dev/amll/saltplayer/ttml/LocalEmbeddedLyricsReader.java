@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+/**
+ * 从本地音频文件中读取内嵌歌词；目前只解析 FLAC Vorbis Comment。
+ */
 final class LocalEmbeddedLyricsReader {
     private static final int FLAC_VORBIS_COMMENT_BLOCK = 4;
     private static final int MAX_COMMENT_COUNT = 10_000;
@@ -51,6 +54,7 @@ final class LocalEmbeddedLyricsReader {
 
             boolean lastBlock = false;
             while (!lastBlock) {
+                // FLAC metadata block header: 1 字节类型和 last 标记，后 3 字节为块长度。
                 header.clear();
                 if (!readFully(channel, header)) return Optional.empty();
                 header.flip();
@@ -76,6 +80,7 @@ final class LocalEmbeddedLyricsReader {
     private static List<Comment> parseVorbisComments(byte[] data) {
         List<Comment> comments = new ArrayList<>();
         int offset = 0;
+        // Vorbis Comment 内部使用小端 uint32 长度字段。
         Long vendorLength = readUInt32Le(data, offset);
         if (vendorLength == null || vendorLength > data.length - 4L) return comments;
         offset += 4 + vendorLength.intValue();
@@ -103,6 +108,7 @@ final class LocalEmbeddedLyricsReader {
     }
 
     private static Optional<EmbeddedLyrics> selectLyrics(List<Comment> comments) {
+        // TTML 字段优先级高于普通歌词字段，避免把可转换歌词当作纯文本回退。
         for (String fieldName : TTML_FIELD_PRIORITY) {
             for (Comment comment : comments) {
                 if (fieldName.equals(comment.name()) && looksLikeTtml(comment.value())) {

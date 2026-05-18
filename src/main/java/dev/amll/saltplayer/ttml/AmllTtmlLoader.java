@@ -29,8 +29,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
+/**
+ * 歌词加载主流程：处理手动覆盖、缓存、在线匹配、TTML 下载转换和本地歌词回退。
+ */
 final class AmllTtmlLoader {
-    // 每次缓存结构升级时递增，用于避免旧缓存格式影响新逻辑。
+    // 缓存结构变化时递增，避免旧格式缓存被新逻辑误读。
     private static final String CACHE_VERSION = "v3";
     private static final Duration INDEX_CACHE_MAX_AGE = Duration.ofHours(1);
     private static final Duration ONLINE_SEARCH_TIMEOUT = Duration.ofSeconds(10);
@@ -68,14 +71,14 @@ final class AmllTtmlLoader {
 
     LoadResult load(PlaybackExtensionPoint.MediaItem mediaItem) {
         try {
-            // 先确保缓存目录存在；后续所有流程都依赖这里的读写。
+            // 后续覆盖记录、miss cache 和歌词缓存都依赖这两个目录。
             Files.createDirectories(cacheRoot);
             Files.createDirectories(lyricsCache);
             AmllLogger.verbose("CACHE", "Cache root prepared. Logs: " + AmllLogger.logRoot());
 
             String songKey = cacheKey(mediaItem);
             String override = readOverride(songKey);
-            // 手动设置“本地优先”时，直接跳过在线检索与自动匹配。
+            // 用户手动选择本地/默认歌词时，跳过所有自动 AMLL 匹配。
             if (OVERRIDE_LOCAL.equals(override)) {
                 AmllLogger.info("MANUAL", "Manual local/default override hit.");
                 AmllLogger.info("FALLBACK", "Falling back because the current track is manually set to local/default lyrics.");
@@ -92,7 +95,7 @@ final class AmllTtmlLoader {
             }
 
             LoadResult memoryResult = MEMORY_RESULT_CACHE.get(songKey);
-            // 内存缓存里的 AMLL 结果优先级最高，可减少磁盘与网络访问。
+            // 当前播放会频繁触发回调，内存缓存可以减少重复磁盘和网络访问。
             if (memoryResult != null && SOURCE_AMLL.equals(memoryResult.source)) {
                 AmllLogger.info("CACHE", "Loaded AMLL lyrics from memory cache.");
                 return memoryResult;
@@ -110,7 +113,7 @@ final class AmllTtmlLoader {
             }
 
             if (hasRecentMiss(songKey)) {
-                // 最近失败过同一首歌，短期内不再重复请求网络，降低延迟和失败噪音。
+                // 自动匹配近期失败过的歌曲先走本地回退，避免反复请求网络。
                 AmllLogger.info("CACHE", "Recent miss cache hit; skipping automatic online match.");
                 return rememberLocalFallback(mediaItem, songKey, "recent miss cache");
             }
@@ -127,7 +130,7 @@ final class AmllTtmlLoader {
     }
 
     private LoadResult loadOnlineWithTimeout(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
-        // 在线检索放入独立线程池，避免阻塞播放器主流程。
+        // 在线检索放到后台线程，并设置硬超时，避免卡住播放器歌词加载流程。
         var future = ONLINE_SEARCH_EXECUTOR.submit((Callable<LoadResult>) () -> loadOnlineLyrics(mediaItem, songKey));
         try {
             LoadResult result = future.get(ONLINE_SEARCH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
@@ -161,7 +164,7 @@ final class AmllTtmlLoader {
                 + "\", album=\"" + AmllLogger.safeText(mediaItem.getAlbum()) + "\".");
         IndexEntry match = findBestMatch(mediaItem);
         if (match == null) {
-            // 先尝试使用本地索引；匹配失败时再刷新远端索引，减少不必要下载。
+            // 先使用本地索引；没有可靠结果时再刷新远端索引，减少不必要下载。
             AmllLogger.info("SEARCH", "No reliable match from cached index; refreshing AMLL index.");
             refreshIndex();
             match = findBestMatch(mediaItem);
@@ -287,6 +290,7 @@ final class AmllTtmlLoader {
             return Optional.empty();
         }
 
+        // 优先读取同名旁挂歌词文件，再读取 FLAC Vorbis Comment 内嵌歌词。
         for (String extension : List.of(".ttml", ".lrc", ".spl")) {
             Path lyricPath = parent.resolve(stem + extension);
             if (!Files.isRegularFile(lyricPath)) continue;
@@ -360,6 +364,7 @@ final class AmllTtmlLoader {
         AmllLogger.info("MATCH", "Best automatic candidate score=" + best.score
                 + ", titleSimilarity=" + String.format(Locale.ROOT, "%.3f", best.titleSimilarity)
                 + ", file=" + best.entry.rawLyricFile + ".");
+        // 自动匹配需要和第二名拉开差距，降低同名歌或不同版本误匹配概率。
         if (second == null || best.score - second.score >= 18 || best.score >= 175 && best.score - second.score >= 8) {
             return best.entry;
         }
@@ -457,6 +462,7 @@ final class AmllTtmlLoader {
             if (expectedRawLyricFile != null && !expectedRawLyricFile.equals(fields[1])) return null;
 
             Path lyricPath = lyricsCache.resolve(fields[2]).normalize();
+            // 防止缓存文件名异常时越过歌词缓存目录读取任意文件。
             if (!lyricPath.startsWith(lyricsCache) || !Files.isRegularFile(lyricPath)) return null;
             AmllLogger.info("CACHE", "Converted lyric cache hit.");
             return Files.readString(lyricPath, StandardCharsets.UTF_8);
@@ -500,6 +506,7 @@ final class AmllTtmlLoader {
     }
 
     private MatchScore score(PlaybackExtensionPoint.MediaItem mediaItem, IndexEntry entry) {
+        // 评分以标题相似度为主，再用歌手和专辑作为加分项。
         String title = normalizeTitle(mediaItem.getTitle());
         String album = normalize(mediaItem.getAlbum());
         List<String> artists = splitArtists(String.join("/", nullToBlank(mediaItem.getArtist()), nullToBlank(mediaItem.getAlbumArtist())));

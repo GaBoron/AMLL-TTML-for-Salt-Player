@@ -5,6 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * 管理全局歌词偏移设置，单位为毫秒。
+ */
 final class LyricSettings {
     private static final int MIN_OFFSET_MILLIS = -300_000;
     private static final int MAX_OFFSET_MILLIS = 300_000;
@@ -16,6 +19,7 @@ final class LyricSettings {
 
     static int offsetMillis() {
         try {
+            // 文件不存在等同于 0 偏移，便于恢复默认行为。
             if (!Files.isRegularFile(OFFSET_FILE)) return 0;
             String value = Files.readString(OFFSET_FILE, StandardCharsets.UTF_8).trim();
             if (value.isBlank()) return 0;

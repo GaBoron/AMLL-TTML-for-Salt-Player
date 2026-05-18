@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * AMLL raw-lyrics-index.jsonl 中的一条索引记录。
+ */
 final class IndexEntry {
     final Map<String, List<String>> metadata;
     final String rawLyricFile;
@@ -17,6 +20,7 @@ final class IndexEntry {
     }
 
     static IndexEntry fromJsonLine(String line) {
+        // 索引文件结构固定，这里用轻量解析避免引入额外 JSON 依赖。
         Matcher rawMatcher = Pattern.compile("\"rawLyricFile\"\\s*:\\s*\"([^\"]+)\"").matcher(line);
         String rawLyricFile = rawMatcher.find() ? unescapeJson(rawMatcher.group(1)) : "";
 

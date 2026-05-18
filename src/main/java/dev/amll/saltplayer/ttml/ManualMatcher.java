@@ -25,6 +25,9 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.util.List;
 
+/**
+ * 手动匹配窗口：允许用户搜索 AMLL 结果、预览歌词并保存当前歌曲覆盖规则。
+ */
 final class ManualMatcher {
     private static final AmllTtmlLoader LOADER = new AmllTtmlLoader();
     private static volatile PlaybackExtensionPoint.MediaItem currentMediaItem;
@@ -37,7 +40,7 @@ final class ManualMatcher {
     }
 
     static void open() {
-        // 所有 UI 操作都切到 EDT，避免 Swing 线程安全问题。
+        // Swing UI 必须在 EDT 上创建和更新。
         SwingUtilities.invokeLater(ManualMatcher::showDialog);
     }
 
@@ -99,7 +102,7 @@ final class ManualMatcher {
         searchButton.addActionListener(event -> search(titleField, artistField, albumField, model, preview, searchButton));
         list.addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting()) {
-                // 选择变化后异步加载预览，防止界面卡顿。
+                // 选择变化后异步加载预览，避免列表选择时卡住窗口。
                 loadPreview(mediaItem, list.getSelectedValue(), preview);
             }
         });
@@ -166,7 +169,7 @@ final class ManualMatcher {
         new SwingWorker<List<AmllTtmlLoader.SearchResult>, Void>() {
             @Override
             protected List<AmllTtmlLoader.SearchResult> doInBackground() throws Exception {
-                // 搜索走后台线程，避免网络/磁盘 IO 阻塞对话框。
+                // 搜索会读取索引和可能触发网络下载，因此放到后台线程。
                 return LOADER.search(titleField.getText(), artistField.getText(), albumField.getText(), 30);
             }
 

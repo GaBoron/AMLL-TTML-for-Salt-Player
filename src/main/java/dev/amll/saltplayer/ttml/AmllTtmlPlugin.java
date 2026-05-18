@@ -3,6 +3,9 @@ package dev.amll.saltplayer.ttml;
 import com.xuncorp.spw.workshop.api.PluginContext;
 import com.xuncorp.spw.workshop.api.SpwPlugin;
 
+/**
+ * Salt Player 插件入口；公开静态方法供 preference_config.json 中的按钮调用。
+ */
 public final class AmllTtmlPlugin extends SpwPlugin {
     public AmllTtmlPlugin(PluginContext pluginContext) {
         super(pluginContext);
