@@ -1,5 +1,5 @@
-name: Feature request
-description: 建议新功能、改进现有功能或优化使用体验
+name: 功能建议 / Feature request
+description: 建议新功能、改进现有功能或优化使用体验 / Suggest features, improvements, or experience optimizations
 title: "[Feature]: "
 labels: ["enhancement"]
 assignees:

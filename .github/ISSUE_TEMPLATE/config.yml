@@ -1,5 +1,1 @@
 blank_issues_enabled: false
-contact_links:
-  - name: Security vulnerability / 安全性问题
-    url: https://github.com/GaBoron/AMLL-TTML-for-Salt-Player/security/policy
-    about: 请不要提交公开 issue。请先阅读 SECURITY.md，并按安全报告流程联系维护者。

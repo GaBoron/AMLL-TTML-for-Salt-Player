@@ -1,5 +1,5 @@
-name: Bug report
-description: 报告插件错误、歌词加载异常或匹配问题
+name: 错误报告 / Bug report
+description: 报告插件错误、歌词加载异常或匹配问题 / Report plugin bugs, lyric loading errors, or matching issues
 title: "[Bug]: "
 labels: ["bug"]
 assignees:
