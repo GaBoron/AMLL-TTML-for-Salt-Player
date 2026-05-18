@@ -1,7 +1,69 @@
-# Security Policy
+# 安全政策
 
-If you find a security issue, please report it through GitHub Issues or the contact channel listed in this repository.
+感谢你帮助改进 AMLL TTML Loader for Salt Player 的安全性。
 
-Do not include sensitive information in public issues, including account details, tokens, private logs, private file paths, or other secrets.
+如果你发现本项目存在安全问题，请负责任地报告。
 
-This plugin does not intentionally upload audio files or user account information. It only uses track title, artist, and album metadata to search AMLL TTML DB for lyric matches.
+## 报告方式
+
+如果问题**不包含**个人隐私、账号信息、日志敏感内容或其他敏感数据，可以按照仓库中的普通问题反馈方式提交。
+
+如果问题**包含**个人隐私信息、账号相关信息、完整日志、截图或其他敏感内容，请不要通过公开渠道提交，也不要在公开页面粘贴相关内容。
+
+请按照 [`SECURITY_REPORT_TEMPLATE.md`](./SECURITY_REPORT_TEMPLATE.md) 中的模板填写报告，并通过邮件发送至：
+
+**gaboron081@gmail.com**
+
+## 邮件格式建议
+
+为了方便定位和处理问题，建议邮件按照以下格式发送。
+
+### 邮件主题
+
+建议格式：
+
+[安全问题报告] AMLL TTML Loader - 简要问题描述
+
+示例：
+
+[安全问题报告] AMLL TTML Loader - 运行日志可能包含本地路径
+
+### 邮件正文
+
+请在邮件正文中填写以下内容：
+
+- 问题简要描述
+- 影响的插件版本
+- 使用环境，例如 Salt Player for Windows 版本、Windows 版本等
+- 复现步骤
+- 预期行为
+- 实际行为
+- 涉及的敏感信息类型
+- 其他补充说明
+
+建议直接复制并填写 [`SECURITY_REPORT_TEMPLATE.zh-CN.md`](./SECURITY_REPORT_TEMPLATE.zh-CN.md) 中的模板内容。
+
+### 附件
+
+如需提供日志、截图或其他文件，请注意：
+
+- 尽量只提供与问题相关的关键内容
+- 发送前请删除或打码无关的隐私信息
+- 不建议直接发送完整日志文件，除非确实有必要
+- 如果附件中仍包含敏感信息，请在邮件正文中说明
+
+## 隐私说明
+
+本插件不会主动上传音频文件或用户账号信息。
+
+插件仅会使用当前歌曲的标题、歌手、专辑等元数据，用于搜索和匹配 AMLL TTML DB 中的歌词。
+
+## 提交前提醒
+
+在发送包含敏感信息的报告前，请尽量删除或打码无关的隐私内容，例如：
+
+- 用户名
+- 本地文件路径
+- 账号信息
+- 完整运行日志
+- 截图中的个人信息
