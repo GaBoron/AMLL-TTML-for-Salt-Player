@@ -1,6 +1,6 @@
-name: 功能建议 / Feature request
-description: 建议新功能、改进现有功能或优化使用体验 / Suggest features, improvements, or experience optimizations
-title: "[Feature]: "
+name: 功能建议
+description: 建议新功能、改进现有功能或优化使用体验
+title: "[功能建议]: "
 labels: ["enhancement"]
 assignees:
   - GaBoron
@@ -8,19 +8,19 @@ body:
   - type: checkboxes
     id: security-check
     attributes:
-      label: 提交前安全确认 / Security check before submitting
-      description: 如果这是安全漏洞、隐私泄露、账号信息、完整日志、截图隐私内容或其他敏感信息相关问题，请不要提交公开 issue，请先阅读 SECURITY.md。
+      label: 提交前安全确认
+      description: 如果这是安全漏洞、隐私泄露、账号信息、完整日志、截图隐私内容或其他敏感信息相关问题，请不要提交公开议题，请先阅读 SECURITY.md。
       options:
         - label: 我确认这不是安全性问题，也不包含敏感信息；如果是安全性问题，我会停止提交并按照 SECURITY.md 报告。
           required: true
   - type: markdown
     attributes:
       value: |
-        安全性问题请不要通过公开 issue 提交。请阅读 [SECURITY.md](https://github.com/GaBoron/AMLL-TTML-for-Salt-Player/security/policy) 并按安全报告流程联系维护者。
+        安全性问题请不要通过公开议题提交。请阅读 [SECURITY.md](https://github.com/GaBoron/AMLL-TTML-for-Salt-Player/security/policy) 并按安全报告流程联系维护者。
   - type: textarea
     id: feature
     attributes:
-      label: 功能建议 / Feature request
+      label: 功能建议
       description: 请简单说明你希望插件增加或改进什么功能。
       placeholder: |
         例如：
@@ -35,7 +35,7 @@ body:
   - type: textarea
     id: use-case
     attributes:
-      label: 使用场景 / Use case
+      label: 使用场景
       description: 这个功能主要解决什么问题？请描述你在什么情况下需要它。
       placeholder: |
         例如：
@@ -48,7 +48,7 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: 期望效果 / Expected behavior
+      label: 期望效果
       description: 你希望这个功能最终表现成什么样？
       placeholder: |
         例如：
@@ -62,18 +62,18 @@ body:
   - type: textarea
     id: possible-solution
     attributes:
-      label: 可能的实现方式 / Possible solution
+      label: 可能的实现方式
       description: 如果你有具体想法，可以写在这里；如果没有具体实现思路，可以留空。
       placeholder: |
         例如：
         - 增加设置项：`启用更严格的标题匹配`
         - 增加按钮：`重新搜索当前歌曲`
         - 增加缓存管理入口：`清理当前歌曲缓存`
-        - 增加日志级别：`普通 / 详细 / 调试`
+        - 增加日志级别：`普通、详细、调试`
   - type: textarea
     id: alternatives
     attributes:
-      label: 替代方案 / Alternatives
+      label: 替代方案
       description: 目前有没有其他方法可以暂时解决这个问题？
       placeholder: |
         例如：
@@ -84,7 +84,7 @@ body:
   - type: checkboxes
     id: impact
     attributes:
-      label: 影响范围 / Impact
+      label: 影响范围
       description: 这个功能可能影响哪些部分？
       options:
         - label: 自动歌词搜索
@@ -95,12 +95,12 @@ body:
         - label: 手动匹配窗口
         - label: 插件设置
         - label: 运行日志
-        - label: README / 文档
+        - label: README 文档
         - label: 其他
   - type: textarea
     id: compatibility
     attributes:
-      label: 兼容性考虑 / Compatibility
+      label: 兼容性考虑
       description: 这个功能是否可能影响现有用户？请简单说明。
       placeholder: |
         例如：
@@ -112,5 +112,5 @@ body:
   - type: textarea
     id: additional-context
     attributes:
-      label: 额外说明 / Additional context
+      label: 额外说明
       description: 可以补充截图、参考项目、相关链接，或者更详细的想法。
