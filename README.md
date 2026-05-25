@@ -2,26 +2,9 @@
 
 **简体中文** | [English](README.en.md)
 
-这是一个 Salt Player for Windows 插件，用于从 AMLL TTML DB 搜索、加载并转换逐词 TTML 歌词，让 Salt Player 可以显示更接近 AMLL 风格的歌词效果。当在线匹配不可靠或无法获取时，插件会自动回退到本地或默认歌词。
+AMLL TTML Loader 是一个 Salt Player for Windows workshop 插件。它会根据当前播放歌曲搜索 AMLL TTML DB，加载并转换逐词 TTML 歌词；当在线匹配不可靠、超时或不可用时，会回退到本地歌词或播放器默认歌词流程。
 
-本项目由 Codex 协助完成。
-
-## 功能
-
-- 根据当前歌曲标题、歌手、专辑信息搜索 AMLL TTML DB。
-- 将 TTML 逐词歌词转换为 Salt Player 可用的 SPL 样式歌词。
-- 支持主歌词、对唱/角色行、翻译、罗马音、背景人声。
-- 使用标题优先的自动匹配策略，减少错误匹配。
-- 在线搜索等待最多 10 秒，失败或超时则回退到本地/默认歌词。
-- 支持同名旁挂 `.ttml`、`.lrc`、`.spl` 歌词文件，以及 FLAC 内嵌歌词元数据中的 TTML 歌词。
-- 对被截断的本地内嵌 TTML，会尽量恢复已完整闭合的歌词行。
-- 缓存成功匹配，之后同一首歌可快速加载。
-- 自动匹配失败记录 7 天，过期后重新尝试。
-- 显示紧凑来源行：`来源：AMLL` 或 `来源：本地`。
-- 提供手动匹配对话框，支持编辑标题/歌手/专辑、预览搜索结果，并可强制使用本地/默认歌词。
-- 提供全局和单曲歌词偏移调整，用于修正歌词与播放进度不同步。
-- 自动隐藏 `[ti:xxx]`、`[ar:xxx]` 等歌词内置元数据行。
-- 新增运行日志，便于排查插件加载、在线搜索、TTML 转换、缓存读写和手动匹配问题。
+当前版本：`1.0.5`
 
 ## 截图
 
@@ -31,28 +14,23 @@
 
 ### 歌词偏移调整
 
-![歌词偏移调整](docs/images/lyric-offset-dialog.png)
+![歌词偏移调整](docs/images/lyric-offset-per-track-dialog.png)
 
 ### 手动匹配当前歌曲
 
 ![手动匹配当前歌曲](docs/images/manual-match-dialog.png)
 
-## 前置要求
+## 用户使用
 
-普通用户：
+### 前置要求
 
 - Windows
 - Salt Player for Windows
 - 能访问 AMLL TTML DB 和 GitHub raw 相关资源
 
-开发者构建：
+普通用户安装插件不需要 JDK。JDK 21 只在从源码构建时需要。
 
-- JDK 21
-- 首次运行 Gradle Wrapper 需要网络，除非本地已有缓存
-
-普通用户安装插件不需要 JDK 21。JDK 21 只在从源码构建时需要。
-
-## 安装方法
+### 安装
 
 1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.5.zip`。
 2. 将 zip 文件复制到：
@@ -62,25 +40,57 @@
    ```
 
 3. 重启 Salt Player for Windows。
-4. 可选：打开插件设置，使用 `手动匹配当前歌曲` 手动选择 AMLL 结果，或强制当前歌曲使用本地/默认歌词。
 
-## 从源码构建
+### 插件设置
 
-运行：
+在 Salt Player 的插件设置中可以：
 
-```powershell
-.\gradlew.bat --no-daemon plugin
-```
+- 手动匹配当前歌曲，选择 AMLL 结果或固定使用本地/元数据歌词。
+- 调整歌词偏移，支持全局偏移和当前歌曲单独偏移。
+- 开启或关闭运行日志。
+- 切换普通或详细日志级别。
+- 打开或清理日志目录。
 
-输出文件：
+### 歌词偏移规则
 
-```text
-out\plugin\AMLL-TTML-Loader-1.0.5.zip
-```
+- `全局歌词时间偏移` 适用于所有未单独设置的歌曲。
+- `当前歌曲时间偏移` 只对当前歌曲生效。
+- 当前歌曲没有单独偏移时，会自动使用全局偏移。
+- 正数表示歌词延后显示，负数表示歌词提前显示，单位为毫秒。
+- 保存偏移后，重新播放当前歌曲即可看到效果。
 
-## 缓存与手动覆盖
+## 功能说明
 
-插件会将缓存和手动覆盖记录保存到：
+### 在线歌词匹配
+
+- 根据当前歌曲标题、歌手、专辑信息搜索 AMLL TTML DB。
+- 使用标题优先的自动匹配策略，降低同名歌、不同版本或错误元数据带来的误匹配。
+- 在线搜索最多等待 10 秒；失败、超时或匹配不可靠时回退。
+- 自动匹配失败会记录 7 天，过期后重新尝试。
+
+### 歌词转换与显示
+
+- 将 TTML 逐词歌词转换为 Salt Player 可用的 SPL 样式歌词。
+- 支持主歌词、对唱/角色行、翻译、罗马音和背景人声。
+- 自动隐藏 `[ti:xxx]`、`[ar:xxx]` 等歌词内置元数据行。
+- 显示紧凑来源行：`来源：AMLL` 或 `来源：本地`。
+
+### 本地歌词回退
+
+- 支持同名旁挂 `.ttml`、`.lrc`、`.spl` 歌词文件。
+- 支持读取 FLAC 元数据中的 TTML/LRC/SPL 歌词字段。
+- 对被截断的本地内嵌 TTML，会尽量恢复已经完整闭合的歌词行。
+
+### 手动匹配
+
+- 可编辑当前歌曲的标题、歌手、专辑后重新搜索。
+- 可预览候选 AMLL 歌词。
+- 可将当前歌曲固定到某个 AMLL 结果。
+- 可让当前歌曲固定使用本地/元数据歌词。
+
+## 本地数据
+
+插件会将缓存、设置和日志保存到：
 
 ```text
 %APPDATA%\Salt Player for Windows\workshop\amll-ttml-loader-cache
@@ -88,29 +98,14 @@ out\plugin\AMLL-TTML-Loader-1.0.5.zip
 
 重要文件：
 
-- `raw-lyrics-index.jsonl`：缓存的 AMLL 歌词索引
+- `raw-lyrics-index.jsonl`：AMLL 歌词索引缓存
 - `song-cache.tsv`：成功的 AMLL 歌词匹配记录
 - `manual-overrides.tsv`：手动选择 AMLL 或本地/默认歌词的记录
 - `miss-cache.tsv`：7 天自动匹配失败记录
 - `lyric-offset-ms.txt`：全局歌词偏移毫秒数
 - `lyric-offsets.tsv`：单曲歌词偏移毫秒数
 - `lyrics\*.spl`：转换后的歌词缓存
-
-## 运行日志
-
-运行日志用于排查插件加载、在线搜索、自动匹配、TTML 转换、缓存读写、手动匹配和歌词回退问题。
-
-日志文件保存到：
-
-```text
-%APPDATA%\Salt Player for Windows\workshop\amll-ttml-loader-cache\logs
-```
-
-日志按日期命名，例如：
-
-```text
-amll-ttml-loader-2026-05-15.log
-```
+- `logs\*.log`：运行日志
 
 日志格式示例：
 
@@ -118,26 +113,9 @@ amll-ttml-loader-2026-05-15.log
 [2026-05-15 20:30:12] [INFO] [SEARCH] Searching AMLL TTML DB: title="xxx", artist="xxx"
 ```
 
-日志默认开启。你可以在插件设置中：
-
-- 启用或关闭运行日志
-- 切换普通或详细日志
-- 设置全局或当前歌曲歌词偏移
-- 打开日志目录
-- 清理日志
-
 插件会自动清理旧日志，保留最近 7 天或最近 10 个日志文件。日志写入失败不会影响歌词加载。
 
-反馈 bug 时，建议附上相关日志片段；请不要提交包含隐私信息的完整日志。
-
-## 网络与隐私说明
-
-- 插件会根据当前歌曲的标题、歌手、专辑信息请求 AMLL TTML DB，用于搜索匹配歌词。
-- 插件不会上传音频文件。
-- 插件不会上传用户账号信息。
-- 插件只会在本机读取 FLAC 内嵌歌词元数据，不会上传内嵌歌词内容。
-- 歌词索引、匹配结果和转换后的歌词会缓存在本地。
-- 如果你介意网络请求，可以选择停用插件或使用本地/默认歌词。
+反馈 bug 时，建议只附上相关日志片段，不要提交包含隐私信息的完整日志。
 
 ## 故障排除
 
@@ -159,13 +137,61 @@ amll-ttml-loader-2026-05-15.log
 - 删除缓存后重试。
 - 检查网络连接。
 - 选择本地/默认歌词覆盖当前歌曲。
-- 查看 `运行日志` 中的日志文件。
+- 查看运行日志。
 
-## 限制说明
+## 开发与维护
+
+### 项目结构
+
+- `src/main/java/dev/amll/saltplayer/ttml`：插件主体代码
+- `src/spwApiStubs/java`：SPW API 编译期 stub，只用于本地编译，不打入插件 jar
+- `src/main/resources/preference_config.json`：Salt Player 插件设置声明
+- `src/main/resources/fonts`：弹窗 UI 内置字体和字体许可证
+- `docs/images`：README 截图
+- `out/plugin`：Gradle `plugin` 任务生成的插件 zip
+
+### 从源码构建
+
+开发环境需要 JDK 21，并确保 `JAVA_HOME` 与 `PATH` 指向可用的 JDK。
+
+普通验证：
+
+```powershell
+.\gradlew.bat build
+```
+
+生成插件包：
+
+```powershell
+.\gradlew.bat plugin
+```
+
+输出文件：
+
+```text
+out\plugin\AMLL-TTML-Loader-1.0.5.zip
+```
+
+### 发布
+
+- 版本号来自 `build.gradle.kts`。
+- User-Agent 版本在 `src/main/java/dev/amll/saltplayer/ttml/AmllTtmlLoader.java`。
+- 推送 `v*` tag 会触发 `.github/workflows/build.yml`，由 GitHub Actions 构建并上传 Release 资产。
+
+## 网络与隐私
+
+- 插件会根据当前歌曲标题、歌手、专辑信息请求 AMLL TTML DB，用于搜索匹配歌词。
+- 插件不会上传音频文件。
+- 插件不会上传用户账号信息。
+- FLAC 内嵌歌词只在本机读取，不会上传。
+- 歌词索引、匹配结果、偏移设置和转换后的歌词会缓存在本地。
+- 如果介意网络请求，可以停用插件或使用本地/默认歌词。
+
+## 限制
 
 - Salt Player 当前插件 API 只允许插件在歌词加载前提供歌词，本插件无法可靠地在同一次播放中先显示本地歌词再替换为在线歌词。
 - 目前只读取 FLAC Vorbis Comment 中常见歌词字段，例如 `LYRICS`、`SYNCEDLYRICS`、`UNSYNCEDLYRICS`。
-- 本插件依赖 AMLL TTML DB 的索引和仓库结构，如果上游结构变化，搜索或加载可能暂时失效。
+- 本插件依赖 AMLL TTML DB 的索引和仓库结构，上游结构变化可能暂时影响搜索或加载。
 - 在线歌词匹配效果受歌曲元数据质量影响。
 - 插件不能保证所有歌曲都能找到准确歌词。
 
