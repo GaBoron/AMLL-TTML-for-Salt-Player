@@ -19,7 +19,7 @@
 - 自动匹配失败记录 7 天，过期后重新尝试。
 - 显示紧凑来源行：`来源：AMLL` 或 `来源：本地`。
 - 提供手动匹配对话框，支持编辑标题/歌手/专辑、预览搜索结果，并可强制使用本地/默认歌词。
-- 提供歌词偏移调整，用于修正歌词与播放进度不同步。
+- 提供全局和单曲歌词偏移调整，用于修正歌词与播放进度不同步。
 - 自动隐藏 `[ti:xxx]`、`[ar:xxx]` 等歌词内置元数据行。
 - 新增运行日志，便于排查插件加载、在线搜索、TTML 转换、缓存读写和手动匹配问题。
 
@@ -54,7 +54,7 @@
 
 ## 安装方法
 
-1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.4.zip`。
+1. 从最新 GitHub Release 下载 `AMLL-TTML-Loader-1.0.5.zip`。
 2. 将 zip 文件复制到：
 
    ```text
@@ -75,7 +75,7 @@
 输出文件：
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.4.zip
+out\plugin\AMLL-TTML-Loader-1.0.5.zip
 ```
 
 ## 缓存与手动覆盖
@@ -93,6 +93,7 @@ out\plugin\AMLL-TTML-Loader-1.0.4.zip
 - `manual-overrides.tsv`：手动选择 AMLL 或本地/默认歌词的记录
 - `miss-cache.tsv`：7 天自动匹配失败记录
 - `lyric-offset-ms.txt`：全局歌词偏移毫秒数
+- `lyric-offsets.tsv`：单曲歌词偏移毫秒数
 - `lyrics\*.spl`：转换后的歌词缓存
 
 ## 运行日志
@@ -121,7 +122,7 @@ amll-ttml-loader-2026-05-15.log
 
 - 启用或关闭运行日志
 - 切换普通或详细日志
-- 设置歌词偏移
+- 设置全局或当前歌曲歌词偏移
 - 打开日志目录
 - 清理日志
 

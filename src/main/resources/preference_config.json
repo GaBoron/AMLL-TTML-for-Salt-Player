@@ -14,7 +14,7 @@
         {
           "type": "button",
           "title": "\u6b4c\u8bcd\u504f\u79fb\u8c03\u6574",
-          "summary": "\u8bbe\u7f6e\u5168\u5c40\u6b4c\u8bcd\u65f6\u95f4\u504f\u79fb\uff0c\u6b63\u6570\u5ef6\u540e\u663e\u793a\uff0c\u8d1f\u6570\u63d0\u524d\u663e\u793a",
+          "summary": "\u8bbe\u7f6e\u5168\u5c40\u6216\u5f53\u524d\u6b4c\u66f2\u7684\u6b4c\u8bcd\u65f6\u95f4\u504f\u79fb",
           "arrow_type": "none",
           "on_click": "dev.amll.saltplayer.ttml.AmllTtmlPlugin.openLyricOffsetDialog"
         },

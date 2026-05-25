@@ -3,7 +3,7 @@
 }
 
 group = "dev.amll.saltplayer"
-version = "1.0.4"
+version = "1.0.5"
 
 layout.buildDirectory.set(file("out"))
 

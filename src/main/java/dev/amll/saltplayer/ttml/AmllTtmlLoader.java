@@ -89,7 +89,7 @@ final class AmllTtmlLoader {
                 String cached = readCachedLyrics(songKey, override);
                 if (cached != null) {
                     AmllLogger.info("CACHE", "Loaded manually selected AMLL lyrics from cache.");
-                    return remember(songKey, result(cached, SOURCE_AMLL));
+                    return remember(songKey, result(mediaItem, cached, SOURCE_AMLL));
                 }
                 return remember(songKey, loadRawLyric(mediaItem, songKey, override));
             }
@@ -104,7 +104,7 @@ final class AmllTtmlLoader {
             String cached = readCachedLyrics(songKey);
             if (cached != null) {
                 AmllLogger.info("CACHE", "Loaded AMLL lyrics from converted lyric cache.");
-                return remember(songKey, result(cached, SOURCE_AMLL));
+                return remember(songKey, result(mediaItem, cached, SOURCE_AMLL));
             }
 
             if (memoryResult != null) {
@@ -158,6 +158,14 @@ final class AmllTtmlLoader {
         return result;
     }
 
+    static void clearMemoryCache() {
+        MEMORY_RESULT_CACHE.clear();
+    }
+
+    static void clearMemoryCache(String songKey) {
+        if (songKey != null) MEMORY_RESULT_CACHE.remove(songKey);
+    }
+
     private LoadResult loadOnlineLyrics(PlaybackExtensionPoint.MediaItem mediaItem, String songKey) throws Exception {
         AmllLogger.info("SEARCH", "Searching AMLL TTML DB: title=\"" + AmllLogger.safeText(mediaItem.getTitle())
                 + "\", artist=\"" + AmllLogger.safeText(mediaItem.getArtist())
@@ -187,7 +195,7 @@ final class AmllTtmlLoader {
         AmllLogger.info("CONVERT", "Converted TTML to Salt Player SPL-style lyrics.");
 
         writeCachedLyrics(songKey, match.rawLyricFile, spl);
-        return result(spl, SOURCE_AMLL);
+        return result(mediaItem, spl, SOURCE_AMLL);
     }
 
     LoadResult loadRawLyric(PlaybackExtensionPoint.MediaItem mediaItem, String songKey, String rawLyricFile) throws Exception {
@@ -201,7 +209,7 @@ final class AmllTtmlLoader {
         }
         AmllLogger.info("CONVERT", "Converted manually selected TTML lyric.");
         writeCachedLyrics(songKey, rawLyricFile, spl);
-        return result(spl, SOURCE_AMLL);
+        return result(mediaItem, spl, SOURCE_AMLL);
     }
 
     List<SearchResult> search(String title, String artist, String album, int limit) throws Exception {
@@ -302,7 +310,7 @@ final class AmllTtmlLoader {
                 lyrics = TtmlToSplConverter.convert(lyrics, mediaItem);
             }
             AmllLogger.info("FALLBACK", "Loaded local fallback lyric file with extension " + extension + ".");
-            return Optional.of(result(lyrics, SOURCE_LOCAL));
+            return Optional.of(result(mediaItem, lyrics, SOURCE_LOCAL));
         }
 
         Optional<LocalEmbeddedLyricsReader.EmbeddedLyrics> embeddedLyrics = LocalEmbeddedLyricsReader.read(audioPath);
@@ -314,15 +322,15 @@ final class AmllTtmlLoader {
                 lyrics = TtmlToSplConverter.convert(lyrics, mediaItem);
             }
             AmllLogger.info("FALLBACK", "Loaded embedded local lyrics from metadata field " + embedded.fieldName() + ".");
-            return Optional.of(result(lyrics, SOURCE_LOCAL));
+            return Optional.of(result(mediaItem, lyrics, SOURCE_LOCAL));
         }
 
         AmllLogger.info("FALLBACK", "No local fallback lyric file or embedded lyric metadata found for the current track.");
         return Optional.empty();
     }
 
-    private LoadResult result(String lyrics, String source) {
-        String prepared = LyricPostProcessor.prepareForDisplay(lyrics, LyricSettings.offsetMillis());
+    private LoadResult result(PlaybackExtensionPoint.MediaItem mediaItem, String lyrics, String source) {
+        String prepared = LyricPostProcessor.prepareForDisplay(lyrics, LyricSettings.offsetMillis(mediaItem));
         return new LoadResult(withSourceTag(prepared, source), source);
     }
 
@@ -491,7 +499,7 @@ final class AmllTtmlLoader {
         connection.setReadTimeout(10_000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.4");
+        connection.setRequestProperty("User-Agent", "salt-player-amll-ttml-loader/1.0.5");
 
         int status = connection.getResponseCode();
         AmllLogger.info("SEARCH", "Remote request completed with HTTP " + status + ".");

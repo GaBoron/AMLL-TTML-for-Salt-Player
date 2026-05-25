@@ -19,7 +19,7 @@ This project was built with assistance from Codex.
 - Record failed automatic matches for seven days, then retry after the miss cache expires.
 - Show a compact source line: `来源：AMLL` or `来源：本地`.
 - Provide a manual matching dialog with editable title/artist/album fields, search result preview, and local/default lyric override.
-- Provide a lyric offset setting to fix lyrics that are ahead of or behind playback.
+- Provide global and per-track lyric offset settings to fix lyrics that are ahead of or behind playback.
 - Hide embedded lyric metadata lines such as `[ti:xxx]` and `[ar:xxx]`.
 - Add runtime logs for troubleshooting plugin loading, online search, TTML conversion, cache reads/writes, and manual matching.
 
@@ -54,7 +54,7 @@ Regular users do not need JDK 21 to install the plugin. JDK 21 is only required 
 
 ## Installation
 
-1. Download `AMLL-TTML-Loader-1.0.4.zip` from the latest GitHub Release.
+1. Download `AMLL-TTML-Loader-1.0.5.zip` from the latest GitHub Release.
 2. Copy the zip file to:
 
    ```text
@@ -75,7 +75,7 @@ Run:
 Output:
 
 ```text
-out\plugin\AMLL-TTML-Loader-1.0.4.zip
+out\plugin\AMLL-TTML-Loader-1.0.5.zip
 ```
 
 ## Cache and Overrides
@@ -93,6 +93,7 @@ Important files:
 - `manual-overrides.tsv`: manual AMLL or local/default choices
 - `miss-cache.tsv`: seven-day automatic-match miss records
 - `lyric-offset-ms.txt`: global lyric offset in milliseconds
+- `lyric-offsets.tsv`: per-track lyric offsets in milliseconds
 - `lyrics\*.spl`: converted lyric cache
 
 ## Logs
@@ -121,7 +122,7 @@ Runtime logging is enabled by default. In the plugin settings, you can:
 
 - Enable or disable runtime logs
 - Switch between normal and verbose logging
-- Set the lyric offset
+- Set the global or current-track lyric offset
 - Open the log directory
 - Clear log files
 
