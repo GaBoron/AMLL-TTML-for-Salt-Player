@@ -5,6 +5,8 @@ out-*/
 .deps/
 dist/
 
+agents.md
+
 *.class
 *.log
 
