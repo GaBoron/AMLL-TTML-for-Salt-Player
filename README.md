@@ -199,9 +199,11 @@ out\plugin\AMLL-TTML-Loader-1.0.5.zip
 
 - [AMLL TTML DB](https://github.com/amll-dev/amll-ttml-db)：歌词数据来源，使用 CC0-1.0
 - Salt Player for Windows：插件运行平台
-- [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api)：Salt Player workshop API 参考
-- [Noto Sans CJK](https://github.com/notofonts/noto-cjk)：弹窗界面内置字体，使用 SIL Open Font License 1.1
-- PF4J：插件机制相关
-- Gradle：构建工具
+- [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api)：Salt Player workshop API 参考，使用 Apache-2.0；本仓库仅包含编译期 stub，不打入插件包
+- [Noto Sans CJK](https://github.com/notofonts/noto-cjk)：弹窗界面内置字体，使用 OFL-1.1；字体许可证随插件包分发
+- [PF4J](https://github.com/pf4j/pf4j)：插件机制 API 参考，使用 Apache-2.0；本仓库仅包含编译期 stub，不打入插件包
+- Gradle：构建工具和 Gradle Wrapper，使用 Apache-2.0
+
+完整第三方许可证说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 本插件只负责搜索、转换、缓存和显示歌词。歌词内容来自 AMLL TTML DB。用户应尊重原音乐作品、歌词文本及相关权利人的权益。

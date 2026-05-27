@@ -199,9 +199,11 @@ out\plugin\AMLL-TTML-Loader-1.0.5.zip
 
 - [AMLL TTML DB](https://github.com/amll-dev/amll-ttml-db): lyric data source, licensed under CC0-1.0
 - Salt Player for Windows: plugin runtime platform
-- [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api): Salt Player workshop API reference
-- [Noto Sans CJK](https://github.com/notofonts/noto-cjk): bundled dialog UI font, licensed under SIL Open Font License 1.1
-- PF4J: plugin mechanism
-- Gradle: build tool
+- [spw-workshop-api](https://github.com/Moriafly/spw-workshop-api): Salt Player workshop API reference, licensed under Apache-2.0; this repository only includes compile-time stubs, which are not packaged into the plugin
+- [Noto Sans CJK](https://github.com/notofonts/noto-cjk): bundled dialog UI font, licensed under OFL-1.1; the font license is distributed with the plugin package
+- [PF4J](https://github.com/pf4j/pf4j): plugin mechanism API reference, licensed under Apache-2.0; this repository only includes compile-time stubs, which are not packaged into the plugin
+- Gradle: build tool and Gradle Wrapper, licensed under Apache-2.0
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full third-party license notice.
 
 This plugin only searches, converts, caches, and displays lyrics. Lyric content comes from AMLL TTML DB. Users should respect the rights of original music works, lyric text, and related rights holders.
